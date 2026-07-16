@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.role.value == 'admin' %}
+        <li class="breadcrumb-item"><a href="{{ url_for('memberships.list_memberships') }}">Memberships</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Membership #{{ membership.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Membership #{{ membership.id }}</h2>
+        <p>
+            <span class="badge bg-{{ membership.status_badge_class }} me-2">{{ membership.status_label }}</span>
+            {{ membership.member.full_name }} &middot; {{ membership.package.name }}
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if current_user.role.value in ('admin', 'manager') %}
+        <form method="POST" action="{{ url_for('memberships.renew_membership', membership_id=membership.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-success btn-sm"
+                    {% if membership.status.value == 'cancelled' %}disabled{% endif %}>
+                <i class="fa-solid fa-rotate me-1"></i>Renew
+            </button>
+        </form>
+        {% if membership.status.value != 'cancelled' %}
+        <form method="POST" action="{{ url_for('memberships.cancel_membership', membership_id=membership.id) }}"
+              onsubmit="return confirm('Cancel this membership?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-ban me-1"></i>Cancel
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+
+        {% if current_user.role.value == 'member' %}
+        <a href="{{ url_for('payments.buy') }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-plus me-1"></i>Get Another Plan
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Membership details -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Membership Details</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Member</dt>
+                    <dd class="col-sm-8">
+                        <a href="{{ url_for('members.view_member', member_id=membership.member.id) }}">
+                            {{ membership.member.full_name }}
+                        </a>
+                    </dd>
+
+                    <dt class="col-sm-4">Package</dt>
+                    <dd class="col-sm-8">
+                        {% if current_user.role.value == 'admin' %}
+                        <a href="{{ url_for('packages.view_package', package_id=membership.package.id) }}">
+                            {{ membership.package.name }}
+                        </a>
+                        {% else %}
+                        {{ membership.package.name }}
+                        {% endif %}
+                        <div class="text-muted small">{{ membership.package.duration_label }} — LKR {{ '{:,.2f}'.format(membership.package.price) }}</div>
+                    </dd>
+
+                    <dt class="col-sm-4">Start Date</dt>
+                    <dd class="col-sm-8">{{ membership.start_date.strftime('%d %b %Y') }}</dd>
+
+                    <dt class="col-sm-4">End Date</dt>
+                    <dd class="col-sm-8">
+                        {{ membership.end_date.strftime('%d %b %Y') }}
+                        {% if membership.is_currently_active %}
+                        <span class="text-muted small ms-2">({{ membership.days_remaining }} days remaining)</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-{{ membership.status_badge_class }}">{{ membership.status_label }}</span>
+                    </dd>
+
+                    {% if membership.notes %}
+                    <dt class="col-sm-4">Notes</dt>
+                    <dd class="col-sm-8">{{ membership.notes }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Membership history for this member -->
+    {% if current_user.role.value == 'admin' %}
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <strong>Membership History</strong>
+                <span class="text-muted small ms-2">{{ membership.member.full_name }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% set history = membership.member.memberships.all() %}
+                {% if history %}
+                <ul class="list-group list-group-flush">
+                    {% for ms in history %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-4 py-3
+                                {% if ms.id == membership.id %}bg-light{% endif %}">
+                        <div>
+                            <div class="fw-semibold small">
+                                <a href="{{ url_for('memberships.view_membership', membership_id=ms.id) }}"
+                                   class="text-decoration-none text-dark">#{{ ms.id }} {{ ms.package.name }}</a>
+                            </div>
+                            <div class="text-muted" style="font-size:12px;">
+                                {{ ms.start_date.strftime('%d %b %Y') }} → {{ ms.end_date.strftime('%d %b %Y') }}
+                            </div>
+                        </div>
+                        <span class="badge bg-{{ ms.status_badge_class }}">{{ ms.status_label }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center py-4 text-muted small">No history.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

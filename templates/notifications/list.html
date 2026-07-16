@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Notifications</h2>
+        <p>Share internal announcements with members and review who received them.</p>
+    </div>
+    <a href="{{ url_for('notifications.create_notification') }}" class="btn btn-primary">
+        <i class="fa-solid fa-paper-plane me-2"></i>Send Notification
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-primary">{{ stats.total }}</div>
+            <div class="stat-label">Total Sent</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-info">{{ stats.this_month }}</div>
+            <div class="stat-label">This Month</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">{{ stats.members_reached }}</div>
+            <div class="stat-label">Members Reached</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.auto_reminders }}</div>
+            <div class="stat-label">Auto Expiry Reminders</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if notifications.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Audience</th>
+                        <th>Recipients</th>
+                        <th>Sent</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for n in notifications.items %}
+                    <tr>
+                        <td class="text-muted small">{{ n.id }}</td>
+                        <td>
+                            <span class="fw-semibold">{{ n.title }}</span>
+                            {% if n.is_auto %}
+                            <span class="badge bg-secondary bg-opacity-15 text-secondary ms-1">Auto</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ n.audience_label }}</td>
+                        <td class="text-muted small">{{ n.recipient_count }}</td>
+                        <td class="text-muted small">
+                            {{ n.sent_at.strftime('%d %b %Y, %H:%M') if n.sent_at else '—' }}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('notifications.view_notification', notification_id=n.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if notifications.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not notifications.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('notifications.list_notifications', page=notifications.prev_num) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in notifications.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == notifications.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('notifications.list_notifications', page=p) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not notifications.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('notifications.list_notifications', page=notifications.next_num) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-bell fa-2x mb-3 d-block"></i>
+            No notifications sent yet.
+            <a href="{{ url_for('notifications.create_notification') }}">Send one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

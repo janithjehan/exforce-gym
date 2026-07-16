@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.role.value == 'member' %}
+        <li class="breadcrumb-item"><a href="{{ url_for('attendance.my_attendance') }}">My Attendance</a></li>
+        {% else %}
+        <li class="breadcrumb-item"><a href="{{ url_for('attendance.list_attendance') }}">Attendance</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Record #{{ record.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Attendance #{{ record.id }}</h2>
+        <p>{{ record.member.full_name }} — {{ record.check_in.strftime('%d %b %Y') }}</p>
+    </div>
+    {% if current_user.role.value in ('admin', 'trainer') and not record.is_checked_out %}
+    <form method="POST" action="{{ url_for('attendance.checkout', attendance_id=record.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Mark Check-Out (Now)
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-person-walking text-orange me-2"></i>Attendance Details
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Member</span>
+                        {% if current_user.role.value != 'member' %}
+                        <a href="{{ url_for('members.view_member', member_id=record.member.id) }}"
+                           class="fw-semibold text-decoration-none">{{ record.member.full_name }}</a>
+                        {% else %}
+                        <span class="fw-semibold">{{ record.member.full_name }}</span>
+                        {% endif %}
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Check-In</span>
+                        <span class="fw-semibold">{{ record.check_in.strftime('%d %b %Y, %H:%M') }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Check-Out</span>
+                        <span>
+                            {% if record.is_checked_out %}
+                            {{ record.check_out.strftime('%d %b %Y, %H:%M') }}
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success">Still In Gym</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 {% if record.notes %}border-bottom{% endif %}">
+                        <span class="text-muted">Duration</span>
+                        <span>{{ record.duration_label }}</span>
+                    </li>
+                    {% if record.notes %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted">Notes</span>
+                        <span class="text-end" style="max-width:60%;">{{ record.notes }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-info text-orange me-2"></i>Record Info
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Recorded By</span>
+                        <span>{{ record.created_by.full_name if record.created_by else '—' }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 {% if record.updated_by %}border-bottom{% endif %}">
+                        <span class="text-muted">Recorded At</span>
+                        <span class="text-muted small">{{ record.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+                    </li>
+                    {% if record.updated_by %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted">Checked Out By</span>
+                        <span>{{ record.updated_by.full_name }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

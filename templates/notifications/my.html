@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>My Notifications</h2>
+        <p>Announcements and reminders from the gym.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        {% if logs.items %}
+        <div class="card">
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for log in logs.items %}
+                    <li class="list-group-item px-4 py-3 {% if log.id in unread_ids %}bg-warning bg-opacity-10{% endif %}">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="stat-icon bg-primary bg-opacity-10 flex-shrink-0"
+                                 style="width:38px;height:38px;font-size:15px;">
+                                <i class="fa-solid fa-bell text-primary"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <span class="fw-semibold" style="font-size:14px;">
+                                        {{ log.notification.title }}
+                                        {% if log.id in unread_ids %}
+                                        <span class="badge bg-danger ms-1" style="font-size:10px;">New</span>
+                                        {% endif %}
+                                    </span>
+                                    <span class="text-muted" style="font-size:12px;">
+                                        {{ log.created_at.strftime('%d %b %Y, %H:%M') }}
+                                    </span>
+                                </div>
+                                <p class="text-muted mb-0 mt-1" style="font-size:13px; white-space: pre-line;">{{ log.notification.message }}</p>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            {% if logs.pages > 1 %}
+            <div class="d-flex justify-content-center py-3 border-top">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {% if not logs.has_prev %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('notifications.my_notifications', page=logs.prev_num) }}">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% for p in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if p %}
+                            <li class="page-item {% if p == logs.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('notifications.my_notifications', page=p) }}">{{ p }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        <li class="page-item {% if not logs.has_next %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('notifications.my_notifications', page=logs.next_num) }}">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="fa-solid fa-bell-slash fa-2x mb-3 d-block"></i>
+                No notifications yet.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

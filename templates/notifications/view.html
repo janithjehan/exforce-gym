@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('notifications.list_notifications') }}">Notifications</a></li>
+        <li class="breadcrumb-item active">#{{ notification.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>{{ notification.title }}</h2>
+        <p>
+            Sent {{ notification.sent_at.strftime('%d %b %Y, %H:%M') if notification.sent_at else '—' }}
+            {% if notification.created_by %} by {{ notification.created_by.full_name }}{% endif %}
+            {% if notification.is_auto %}<span class="badge bg-secondary ms-1">Auto Reminder</span>{% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-envelope-open-text text-orange me-2"></i>Message
+            </div>
+            <div class="card-body">
+                <p class="mb-0" style="white-space: pre-line;">{{ notification.message }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-bullseye text-orange me-2"></i>Delivery Summary
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0" style="font-size:13.5px;">
+                    <dt class="col-6">Audience</dt>
+                    <dd class="col-6">{{ notification.audience_label }}</dd>
+
+                    <dt class="col-6">Recipients</dt>
+                    <dd class="col-6">{{ notification.recipient_count }}</dd>
+
+                    <dt class="col-6">In-App</dt>
+                    <dd class="col-6 mb-0"><span class="badge bg-success bg-opacity-15 text-success">{{ notification.recipient_count }} delivered</span></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card table-card">
+            <div class="card-header">
+                <span><i class="fa-solid fa-list-check text-orange me-2"></i>Delivery Log</span>
+            </div>
+            {% if logs.items %}
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Delivered</th>
+                        <th>Read</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('members.view_member', member_id=log.member.id) }}"
+                               class="fw-semibold text-decoration-none" style="font-size:13.5px;">
+                                {{ log.member.full_name }}
+                            </a>
+                        </td>
+                        <td class="text-muted small">
+                            {{ log.created_at.strftime('%d %b %Y, %H:%M') }}
+                        </td>
+                        <td class="text-muted small">
+                            {% if log.is_read %}
+                            <span class="badge bg-success bg-opacity-15 text-success">
+                                Read {{ log.read_at.strftime('%d %b, %H:%M') if log.read_at }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary bg-opacity-15 text-secondary">Unread</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if logs.pages > 1 %}
+            <div class="d-flex justify-content-center py-3">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {% if not logs.has_prev %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('notifications.view_notification', notification_id=notification.id, page=logs.prev_num) }}">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% for p in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if p %}
+                            <li class="page-item {% if p == logs.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('notifications.view_notification', notification_id=notification.id, page=p) }}">{{ p }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        <li class="page-item {% if not logs.has_next %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('notifications.view_notification', notification_id=notification.id, page=logs.next_num) }}">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fa-solid fa-list-check fa-2x mb-3 d-block"></i>
+                No delivery records.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

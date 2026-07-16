@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.role.value == 'admin' %}
+        <li class="breadcrumb-item"><a href="{{ url_for('members.list_members') }}">Members</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ member.full_name }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>{{ member.full_name }}</h2>
+        <p>Member profile and gym information.</p>
+    </div>
+    {% if current_user.role.value == 'admin' and not member.is_archived %}
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('members.edit_member', member_id=member.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-pen me-1"></i>Edit Profile
+        </a>
+        <a href="{{ url_for('users.view_user', user_id=member.user_id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-users-gear me-1"></i>User Account
+        </a>
+        <form method="POST" action="{{ url_for('members.archive_member', member_id=member.id) }}"
+              onsubmit="return confirm('Archive {{ member.full_name }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="fa-solid fa-archive me-1"></i>Archive
+            </button>
+        </form>
+    </div>
+    {% elif current_user.role.value == 'admin' and member.is_archived %}
+    <form method="POST" action="{{ url_for('members.restore_member', member_id=member.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-success btn-sm">
+            <i class="fa-solid fa-rotate-left me-1"></i>Restore Member
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+{% if member.is_archived %}
+<div class="alert alert-secondary mb-4" style="font-size:13.5px;">
+    <i class="fa-solid fa-archive me-2"></i>This member profile is archived.
+</div>
+{% elif not member.is_profile_complete %}
+<div class="alert alert-warning mb-4" style="font-size:13.5px;">
+    <i class="fa-solid fa-triangle-exclamation me-2"></i>
+    This profile is incomplete — contact number is missing.
+    {% if current_user.role.value == 'admin' %}
+    <a href="{{ url_for('members.edit_member', member_id=member.id) }}" class="alert-link">Complete profile →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- Profile Summary -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body text-center pt-4">
+                <div class="user-avatar user-avatar-lg mx-auto mb-3">
+                    {{ member.user.first_name[0] | upper }}{{ member.user.last_name[0] | upper }}
+                </div>
+                <h5 class="fw-bold mb-1">{{ member.full_name }}</h5>
+                <div class="text-muted mb-1" style="font-size:13px;">@{{ member.username }}</div>
+                <div class="text-muted mb-3" style="font-size:12px;">{{ member.email }}</div>
+
+                <!-- Membership status badge -->
+                {% if member.is_active_member %}
+                <span class="badge bg-success mb-3" style="font-size:12px; padding:6px 14px;">
+                    <i class="fa-solid fa-circle-check me-1"></i>Active Member
+                </span>
+                {% else %}
+                <span class="badge bg-warning text-dark mb-3" style="font-size:12px; padding:6px 14px;">
+                    <i class="fa-solid fa-circle-exclamation me-1"></i>No Active Membership
+                </span>
+                {% endif %}
+            </div>
+            <div class="divider mx-0 my-0"></div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-phone fa-fw me-2"></i>Contact</span>
+                        <span>{{ member.contact_no or '—' }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-calendar fa-fw me-2"></i>Joined</span>
+                        <span>{{ member.join_date.strftime('%d %b %Y') }}</span>
+                    </li>
+                    {% if member.age %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-cake-candles fa-fw me-2"></i>Age</span>
+                        <span>{{ member.age }} years</span>
+                    </li>
+                    {% endif %}
+                    {% if member.gender %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-venus-mars fa-fw me-2"></i>Gender</span>
+                        <span>{{ member.gender.label }}</span>
+                    </li>
+                    {% endif %}
+                    {% if member.address %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted"><i class="fa-solid fa-location-dot fa-fw me-2"></i>Address</span>
+                        <span class="text-end" style="max-width:60%;">{{ member.address }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Emergency Contact -->
+        {% if member.emergency_contact_name or member.emergency_contact_no %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fa-solid fa-heart-pulse text-danger me-2"></i>Emergency Contact
+            </div>
+            <div class="card-body" style="font-size:13.5px;">
+                {% if member.emergency_contact_name %}
+                <div class="mb-1"><strong>{{ member.emergency_contact_name }}</strong></div>
+                {% endif %}
+                {% if member.emergency_contact_no %}
+                <div class="text-muted">{{ member.emergency_contact_no }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column -->
+    <div class="col-lg-8">
+        <!-- Membership -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="fa-solid fa-id-badge text-orange me-2"></i>Membership</span>
+                {% if current_user.role.value == 'admin' and not member.is_archived %}
+                <a href="{{ url_for('memberships.create_membership', member_id=member.id) }}"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="fa-solid fa-plus me-1"></i>Assign Package
+                </a>
+                {% endif %}
+            </div>
+            {% set memberships = member.memberships.all() %}
+            {% if memberships %}
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" style="font-size:13.5px;">
+                    {% for ms in memberships %}
+                    <li class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-semibold">
+                                    {% if current_user.role.value == 'admin' %}
+                                    <a href="{{ url_for('memberships.view_membership', membership_id=ms.id) }}"
+                                       class="text-dark text-decoration-none">{{ ms.package.name }}</a>
+                                    {% else %}
+                                    {{ ms.package.name }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small">
+                                    {{ ms.start_date.strftime('%d %b %Y') }} →
+                                    {{ ms.end_date.strftime('%d %b %Y') }}
+                                    {% if ms.is_currently_active %}
+                                    &nbsp;<span class="text-success">({{ ms.days_remaining }} days left)</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <span class="badge bg-{{ ms.status_badge_class }}">{{ ms.status_label }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div class="empty-state py-4">
+                <i class="fa-solid fa-id-badge d-block" style="font-size:28px;"></i>
+                <p class="mt-2 mb-0" style="font-size:13px;">No memberships assigned.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Payment History -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="fa-solid fa-receipt text-orange me-2"></i>Payment History</span>
+                {% if current_user.role.value == 'admin' and not member.is_archived %}
+                <a href="{{ url_for('payments.create_payment', member_id=member.id) }}"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="fa-solid fa-plus me-1"></i>Record Payment
+                </a>
+                {% endif %}
+            </div>
+            {% set recent_payments = member.payments.limit(5).all() %}
+            {% if recent_payments %}
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" style="font-size:13.5px;">
+                    {% for p in recent_payments %}
+                    <li class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">
+                                    LKR {{ '{:,.2f}'.format(p.amount) }}
+                                    <span class="badge bg-{{ p.method.badge_class }} bg-opacity-15 text-{{ p.method.badge_class }} ms-1">
+                                        {{ p.method.label }}
+                                    </span>
+                                </div>
+                                <div class="text-muted small">
+                                    {{ p.payment_date.strftime('%d %b %Y') }}
+                                    {% if p.reference_no %}&nbsp;· Ref: {{ p.reference_no }}{% endif %}
+                                </div>
+                            </div>
+                            {% if current_user.role.value == 'admin' %}
+                            <a href="{{ url_for('payments.view_payment', payment_id=p.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if member.payments.count() > 5 %}
+                <div class="text-center py-2 border-top" style="font-size:13px;">
+                    <a href="{{ url_for('payments.list_payments', search=member.full_name) }}">
+                        View all {{ member.payments.count() }} payments
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state py-4">
+                <i class="fa-solid fa-receipt d-block" style="font-size:28px;"></i>
+                <p class="mt-2 mb-0" style="font-size:13px;">No payments recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Attendance History -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="fa-solid fa-person-walking text-orange me-2"></i>Attendance History</span>
+                {% if current_user.role.value == 'admin' and not member.is_archived %}
+                <a href="{{ url_for('attendance.create_attendance', member_id=member.id) }}"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="fa-solid fa-plus me-1"></i>Record
+                </a>
+                {% endif %}
+            </div>
+            {% set recent_att = member.attendances.limit(5).all() %}
+            {% if recent_att %}
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" style="font-size:13.5px;">
+                    {% for r in recent_att %}
+                    <li class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">{{ r.check_in.strftime('%d %b %Y') }}</div>
+                                <div class="text-muted small">
+                                    {{ r.check_in.strftime('%H:%M') }}
+                                    {% if r.check_out %}→ {{ r.check_out.strftime('%H:%M') }} ({{ r.duration_label }}){% endif %}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if r.is_checked_out %}
+                                <span class="badge bg-secondary bg-opacity-15 text-secondary">Done</span>
+                                {% else %}
+                                <span class="badge bg-success bg-opacity-15 text-success">In Gym</span>
+                                {% endif %}
+                                {% if current_user.role.value in ('admin', 'trainer') %}
+                                <a href="{{ url_for('attendance.view_attendance', attendance_id=r.id) }}"
+                                   class="btn btn-sm btn-outline-secondary">View</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if member.attendances.count() > 5 %}
+                <div class="text-center py-2 border-top" style="font-size:13px;">
+                    <a href="{{ url_for('attendance.list_attendance', search=member.full_name) }}">
+                        View all {{ member.attendances.count() }} records
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state py-4">
+                <i class="fa-solid fa-person-walking d-block" style="font-size:28px;"></i>
+                <p class="mt-2 mb-0" style="font-size:13px;">No attendance records yet.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Assigned Trainer / Schedule (placeholder) -->
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fa-solid fa-calendar-days text-orange me-2"></i>Workout Schedule</span>
+            </div>
+            <div class="empty-state py-5">
+                <i class="fa-solid fa-calendar-days d-block" style="font-size:36px;"></i>
+                <p class="mt-2" style="font-size:13px;">No schedules assigned yet.</p>
+            </div>
+        </div>
+
+        <!-- Admin Notes -->
+        {% if current_user.role.value == 'admin' and member.notes %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fa-solid fa-note-sticky text-orange me-2"></i>Admin Notes
+            </div>
+            <div class="card-body" style="font-size:13.5px; white-space:pre-line;">{{ member.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

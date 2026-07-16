@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>My Attendance</h2>
+        <p>Your gym visit history.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if records.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records.items %}
+                    <tr>
+                        <td class="fw-semibold small">{{ r.check_in.strftime('%d %b %Y') }}</td>
+                        <td class="text-muted small">{{ r.check_in.strftime('%H:%M') }}</td>
+                        <td class="text-muted small">{{ r.check_out.strftime('%H:%M') if r.check_out else '—' }}</td>
+                        <td class="text-muted small">{{ r.duration_label }}</td>
+                        <td>
+                            {% if r.is_checked_out %}
+                            <span class="badge bg-secondary bg-opacity-15 text-secondary">Done</span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success">In Gym</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('attendance.view_attendance', attendance_id=r.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if records.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('attendance.my_attendance', page=records.prev_num) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == records.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('attendance.my_attendance', page=p) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not records.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('attendance.my_attendance', page=records.next_num) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-person-walking fa-2x mb-3 d-block"></i>
+            No attendance records yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

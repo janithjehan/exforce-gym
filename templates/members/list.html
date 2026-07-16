@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Members</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Members</h2>
+        <p>Manage gym member profiles and view their status.</p>
+    </div>
+    <a href="{{ url_for('members.create_member') }}" class="btn btn-primary">
+        <i class="fa-solid fa-user-plus me-2"></i>Add Member
+    </a>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-primary bg-opacity-10">
+                    <i class="fa-solid fa-users text-primary"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ total }}</div>
+                    <div class="stat-label">Total Members</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-warning bg-opacity-10">
+                    <i class="fa-solid fa-triangle-exclamation text-warning"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ incomplete }}</div>
+                    <div class="stat-label">Incomplete Profiles</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-info bg-opacity-10">
+                    <i class="fa-solid fa-calendar-check text-info"></i>
+                </div>
+                <div>
+                    <div class="stat-value">—</div>
+                    <div class="stat-label">Active Memberships</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('members.list_members') }}" class="row g-2 align-items-end">
+            <div class="col-lg-5 col-md-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Search</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Name, email or contact no…" value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="all"      {% if status_filter == 'all' %}selected{% endif %}>Active (excl. archived)</option>
+                    <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter me-1"></i>Filter
+                </button>
+                <a href="{{ url_for('members.list_members') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card table-card">
+    <div class="card-header">
+        <span>
+            <i class="fa-solid fa-id-card text-orange me-2"></i>
+            Members
+            <span class="badge bg-secondary ms-2" style="font-size:11px;">{{ members.total }}</span>
+        </span>
+    </div>
+
+    {% if members.items %}
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Member</th>
+                    <th>Contact</th>
+                    <th>Join Date</th>
+                    <th>Membership</th>
+                    <th>Profile</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members.items %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="user-avatar" style="flex-shrink:0;">
+                                {{ m.user.first_name[0] | upper }}{{ m.user.last_name[0] | upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold" style="font-size:13.5px;">{{ m.full_name }}</div>
+                                <div class="text-muted" style="font-size:12px;">{{ m.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:13px;">
+                        {% if m.contact_no %}
+                            {{ m.contact_no }}
+                        {% else %}
+                            <span class="text-muted fst-italic">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:13px;">{{ m.join_date.strftime('%d %b %Y') }}</td>
+                    <td>
+                        {% if m.is_active_member %}
+                        <span class="badge bg-success bg-opacity-15 text-success">
+                            <i class="fa-solid fa-circle me-1" style="font-size:8px;"></i>Active
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning bg-opacity-15 text-warning">
+                            <i class="fa-solid fa-circle me-1" style="font-size:8px;"></i>No Membership
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.is_profile_complete %}
+                        <span class="badge bg-success bg-opacity-15 text-success">Complete</span>
+                        {% else %}
+                        <span class="badge bg-danger bg-opacity-15 text-danger">Incomplete</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1 action-btn-group">
+                            <a href="{{ url_for('members.view_member', member_id=m.id) }}"
+                               class="btn btn-sm btn-outline-secondary" title="View">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            {% if not m.is_archived %}
+                            <a href="{{ url_for('members.edit_member', member_id=m.id) }}"
+                               class="btn btn-sm btn-outline-primary" title="Edit">
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+                            <form method="POST"
+                                  action="{{ url_for('members.archive_member', member_id=m.id) }}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('Archive {{ m.full_name }}?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Archive">
+                                    <i class="fa-solid fa-archive"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="POST"
+                                  action="{{ url_for('members.restore_member', member_id=m.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if members.pages > 1 %}
+    <div class="card-body border-top py-3">
+        <nav>
+            <ul class="pagination pagination-sm mb-0 justify-content-center">
+                <li class="page-item {% if not members.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('members.list_members', page=members.prev_num,
+                        search=search, status=status_filter) }}">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in members.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                    <li class="page-item {% if p == members.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('members.list_members', page=p,
+                            search=search, status=status_filter) }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not members.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('members.list_members', page=members.next_num,
+                        search=search, status=status_filter) }}">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <p class="text-center text-muted mt-2 mb-0" style="font-size:12px;">
+            Showing {{ members.items | length }} of {{ members.total }}
+            (page {{ members.page }} / {{ members.pages }})
+        </p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fa-solid fa-users d-block"></i>
+        <p>No members found.</p>
+        <a href="{{ url_for('members.create_member') }}" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-user-plus me-1"></i>Add First Member
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

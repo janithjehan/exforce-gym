@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('users.list_users') }}">Users</a></li>
+        <li class="breadcrumb-item active">{{ user.username }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>{{ user.full_name }}</h2>
+        <p>User profile and activity history.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if not user.is_archived %}
+        <a href="{{ url_for('users.edit_user', user_id=user.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-pen me-1"></i>Edit
+        </a>
+        <a href="{{ url_for('users.reset_password', user_id=user.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-key me-1"></i>Reset Password
+        </a>
+        {% if user.is_active %}
+        <form method="POST" action="{{ url_for('users.deactivate_user', user_id=user.id) }}"
+              onsubmit="return confirm('Deactivate {{ user.username }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-warning btn-sm">
+                <i class="fa-solid fa-ban me-1"></i>Deactivate
+            </button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('users.activate_user', user_id=user.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="fa-solid fa-circle-check me-1"></i>Activate
+            </button>
+        </form>
+        {% endif %}
+        {% if user.id != current_user.id %}
+        <form method="POST" action="{{ url_for('users.archive_user', user_id=user.id) }}"
+              onsubmit="return confirm('Archive {{ user.username }}? This will disable their account.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="fa-solid fa-archive me-1"></i>Archive
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Profile Card -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body text-center pt-4">
+                <div class="user-avatar user-avatar-lg mx-auto mb-3">
+                    {{ user.first_name[0] | upper }}{{ user.last_name[0] | upper }}
+                </div>
+                <h5 class="fw-bold mb-1">{{ user.full_name }}</h5>
+                <div class="text-muted mb-2" style="font-size:13px;">@{{ user.username }}</div>
+                <span class="badge
+                    {% if user.role.value == 'admin' %}role-badge-admin
+                    {% elif user.role.value == 'trainer' %}role-badge-trainer
+                    {% else %}role-badge-member{% endif %} me-1">
+                    {{ user.role.label }}
+                </span>
+                <span class="badge bg-{{ user.status_badge_class }} bg-opacity-15 text-{{ user.status_badge_class }}">
+                    {{ user.status_label }}
+                </span>
+            </div>
+            <div class="divider mx-4 my-0"></div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-envelope fa-fw me-2"></i>Email</span>
+                        <span class="fw-medium text-end" style="max-width:60%; word-break:break-all;">{{ user.email }}</span>
+                    </li>
+                    {% if user.phone %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-phone fa-fw me-2"></i>Phone</span>
+                        <span>{{ user.phone }}</span>
+                    </li>
+                    {% endif %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-calendar fa-fw me-2"></i>Joined</span>
+                        <span>{{ user.created_at.strftime('%d %b %Y') }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-clock fa-fw me-2"></i>Last Login</span>
+                        <span>
+                            {% if user.last_login %}
+                                {{ user.last_login.strftime('%d %b %Y %H:%M') }}
+                            {% else %}
+                                <span class="fst-italic text-muted">Never</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                    {% if user.updated_at and user.updated_at != user.created_at %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted"><i class="fa-solid fa-pen fa-fw me-2"></i>Updated</span>
+                        <span>{{ user.updated_at.strftime('%d %b %Y') }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="col-lg-8">
+        <div class="card table-card">
+            <div class="card-header">
+                <span><i class="fa-solid fa-clock-rotate-left text-orange me-2"></i>Recent Activity Log</span>
+            </div>
+
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>IP Address</th>
+                            <th>Details</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                {% set action_val = log.action.value %}
+                                {% if action_val == 'login' %}
+                                    <span class="badge bg-success bg-opacity-15 text-success">
+                                        <i class="fa-solid fa-arrow-right-to-bracket me-1"></i>Login
+                                    </span>
+                                {% elif action_val == 'logout' %}
+                                    <span class="badge bg-secondary bg-opacity-15 text-secondary">
+                                        <i class="fa-solid fa-arrow-right-from-bracket me-1"></i>Logout
+                                    </span>
+                                {% elif action_val == 'failed_login' %}
+                                    <span class="badge bg-danger bg-opacity-15 text-danger">
+                                        <i class="fa-solid fa-circle-xmark me-1"></i>Failed Login
+                                    </span>
+                                {% elif action_val == 'password_changed' %}
+                                    <span class="badge bg-warning bg-opacity-15 text-warning">
+                                        <i class="fa-solid fa-key me-1"></i>Password Changed
+                                    </span>
+                                {% elif action_val == 'account_activated' %}
+                                    <span class="badge bg-success bg-opacity-15 text-success">
+                                        <i class="fa-solid fa-circle-check me-1"></i>Activated
+                                    </span>
+                                {% elif action_val == 'account_deactivated' %}
+                                    <span class="badge bg-danger bg-opacity-15 text-danger">
+                                        <i class="fa-solid fa-ban me-1"></i>Deactivated
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ action_val }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted" style="font-size:12.5px;">{{ log.ip_address or '—' }}</td>
+                            <td class="text-muted" style="font-size:12.5px;">{{ log.details or '—' }}</td>
+                            <td class="text-muted" style="font-size:12px; white-space:nowrap;">
+                                {{ log.timestamp.strftime('%d %b %Y %H:%M:%S') }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa-solid fa-clock-rotate-left d-block"></i>
+                <p>No activity recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

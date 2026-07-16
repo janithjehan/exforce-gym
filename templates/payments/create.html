@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('payments.list_payments') }}">Payments</a></li>
+        <li class="breadcrumb-item active">Record Payment</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Record Payment</h2>
+        <p>Record a new payment for a gym member.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-receipt text-orange me-2"></i>Payment Details
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.member_id.label(class='form-label fw-semibold') }}
+                        {{ form.member_id(class='form-select' + (' is-invalid' if form.member_id.errors else ''), id='memberSelect') }}
+                        {% for e in form.member_id.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.membership_id.label(class='form-label fw-semibold') }}
+                        {{ form.membership_id(class='form-select' + (' is-invalid' if form.membership_id.errors else ''), id='membershipSelect') }}
+                        {% for e in form.membership_id.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                        <div class="form-text">Optionally link this payment to a specific membership.</div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            {{ form.amount.label(class='form-label fw-semibold') }}
+                            <div class="input-group">
+                                <span class="input-group-text">LKR</span>
+                                {{ form.amount(class='form-control' + (' is-invalid' if form.amount.errors else ''), placeholder='0.00') }}
+                                {% for e in form.amount.errors %}
+                                <div class="invalid-feedback">{{ e }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            {{ form.method.label(class='form-label fw-semibold') }}
+                            {{ form.method(class='form-select' + (' is-invalid' if form.method.errors else '')) }}
+                            {% for e in form.method.errors %}
+                            <div class="invalid-feedback">{{ e }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            {{ form.payment_date.label(class='form-label fw-semibold') }}
+                            {{ form.payment_date(class='form-control' + (' is-invalid' if form.payment_date.errors else '')) }}
+                            {% for e in form.payment_date.errors %}
+                            <div class="invalid-feedback">{{ e }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-sm-6">
+                            {{ form.reference_no.label(class='form-label fw-semibold') }}
+                            {{ form.reference_no(class='form-control' + (' is-invalid' if form.reference_no.errors else '')) }}
+                            {% for e in form.reference_no.errors %}
+                            <div class="invalid-feedback">{{ e }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.notes.label(class='form-label fw-semibold') }}
+                        {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                        {% for e in form.notes.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('payments.list_payments') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Dynamically reload memberships when member changes
+const memberSelect = document.getElementById('memberSelect');
+const membershipSelect = document.getElementById('membershipSelect');
+
+memberSelect.addEventListener('change', function () {
+    const memberId = this.value;
+    if (!memberId) return;
+
+    fetch(`/payments/memberships-for-member/${memberId}`)
+        .then(r => r.json())
+        .then(data => {
+            membershipSelect.innerHTML = '';
+            data.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = item.label;
+                membershipSelect.appendChild(opt);
+            });
+        });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">User Management</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>User Management</h2>
+        <p>Create, view and manage all system users.</p>
+    </div>
+    <a href="{{ url_for('users.create_user') }}" class="btn btn-primary">
+        <i class="fa-solid fa-user-plus me-2"></i>Add User
+    </a>
+</div>
+
+<!-- Filters & Search -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('users.list_users') }}" class="row g-2 align-items-end">
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Search</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Name, username or email…" value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Role</label>
+                <select name="role" class="form-select form-select-sm">
+                    <option value="">All Roles</option>
+                    {% for r in roles %}
+                    <option value="{{ r.value }}" {% if role_filter == r.value %}selected{% endif %}>
+                        {{ r.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="all"    {% if status_filter == 'all' %}selected{% endif %}>All (excl. archived)</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter me-1"></i>Filter
+                </button>
+                <a href="{{ url_for('users.list_users') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card table-card">
+    <div class="card-header">
+        <span>
+            <i class="fa-solid fa-users-gear text-orange me-2"></i>
+            Users
+            <span class="badge bg-secondary ms-2" style="font-size:11px;">{{ users.total }}</span>
+        </span>
+    </div>
+
+    {% if users.items %}
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users.items %}
+                <tr>
+                    <td class="text-muted" style="font-size:12px;">{{ u.id }}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="user-avatar" style="flex-shrink:0;">
+                                {{ u.first_name[0] | upper }}{{ u.last_name[0] | upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold" style="font-size:13.5px;">{{ u.full_name }}</div>
+                                <div class="text-muted" style="font-size:12px;">@{{ u.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:13px;">{{ u.email }}</td>
+                    <td>
+                        <span class="badge
+                            {% if u.role.value == 'admin' %}role-badge-admin
+                            {% elif u.role.value == 'trainer' %}role-badge-trainer
+                            {% else %}role-badge-member{% endif %}">
+                            {{ u.role.label }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ u.status_badge_class }} bg-opacity-15 text-{{ u.status_badge_class }}">
+                            <i class="fa-solid fa-circle me-1" style="font-size:8px;"></i>{{ u.status_label }}
+                        </span>
+                    </td>
+                    <td class="text-muted" style="font-size:12px;">
+                        {% if u.last_login %}
+                            {{ u.last_login.strftime('%d %b %Y %H:%M') }}
+                        {% else %}
+                            <span class="fst-italic">Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1 action-btn-group">
+                            <a href="{{ url_for('users.view_user', user_id=u.id) }}"
+                               class="btn btn-sm btn-outline-secondary" title="View">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            {% if not u.is_archived %}
+                            <a href="{{ url_for('users.edit_user', user_id=u.id) }}"
+                               class="btn btn-sm btn-outline-primary" title="Edit">
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+                            {% if u.is_active %}
+                            <form method="POST" action="{{ url_for('users.deactivate_user', user_id=u.id) }}"
+                                  class="d-inline" onsubmit="return confirm('Deactivate {{ u.username }}?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Deactivate">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('users.activate_user', user_id=u.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Activate">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if users.pages > 1 %}
+    <div class="card-body border-top py-3">
+        <nav>
+            <ul class="pagination pagination-sm mb-0 justify-content-center">
+                <li class="page-item {% if not users.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('users.list_users', page=users.prev_num,
+                        search=search, role=role_filter, status=status_filter) }}">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in users.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                    <li class="page-item {% if p == users.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('users.list_users', page=p,
+                            search=search, role=role_filter, status=status_filter) }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not users.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('users.list_users', page=users.next_num,
+                        search=search, role=role_filter, status=status_filter) }}">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <p class="text-center text-muted mt-2 mb-0" style="font-size:12px;">
+            Showing {{ users.items | length }} of {{ users.total }} users
+            (page {{ users.page }} / {{ users.pages }})
+        </p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fa-solid fa-users d-block"></i>
+        <p>No users found matching your criteria.</p>
+        <a href="{{ url_for('users.list_users') }}" class="btn btn-sm btn-outline-secondary">Clear filters</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

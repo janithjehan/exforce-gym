@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('members.list_members') }}">Members</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('members.view_member', member_id=member.id) }}">{{ member.full_name }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Edit Member Profile</h2>
+        <p>Update gym profile details for <strong>{{ member.full_name }}</strong>.</p>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('members.edit_member', member_id=member.id) }}" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="row g-4">
+        <!-- Personal Info -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="fa-solid fa-circle-user text-orange me-2"></i>Personal Info
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            {{ form.first_name.label(class='form-label') }}
+                            {{ form.first_name(class='form-control' + (' is-invalid' if form.first_name.errors else '')) }}
+                            {% for e in form.first_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.last_name.label(class='form-label') }}
+                            {{ form.last_name(class='form-control' + (' is-invalid' if form.last_name.errors else '')) }}
+                            {% for e in form.last_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.phone.label(class='form-label') }}
+                            {{ form.phone(class='form-control' + (' is-invalid' if form.phone.errors else '')) }}
+                            {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.contact_no.label(class='form-label') }}
+                            {{ form.contact_no(class='form-control' + (' is-invalid' if form.contact_no.errors else '')) }}
+                            {% for e in form.contact_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.date_of_birth.label(class='form-label') }}
+                            {{ form.date_of_birth(class='form-control' + (' is-invalid' if form.date_of_birth.errors else ''), type='date') }}
+                            {% for e in form.date_of_birth.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.gender.label(class='form-label') }}
+                            {{ form.gender(class='form-select' + (' is-invalid' if form.gender.errors else '')) }}
+                            {% for e in form.gender.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.address.label(class='form-label') }}
+                            {{ form.address(class='form-control' + (' is-invalid' if form.address.errors else '')) }}
+                            {% for e in form.address.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gym Info & Emergency Contact -->
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fa-solid fa-dumbbell text-orange me-2"></i>Gym Info
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            {{ form.join_date.label(class='form-label') }}
+                            {{ form.join_date(class='form-control' + (' is-invalid' if form.join_date.errors else ''), type='date') }}
+                            {% for e in form.join_date.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.notes.label(class='form-label') }}
+                            {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                            {% for e in form.notes.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <i class="fa-solid fa-heart-pulse text-danger me-2"></i>Emergency Contact
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            {{ form.emergency_contact_name.label(class='form-label') }}
+                            {{ form.emergency_contact_name(class='form-control' + (' is-invalid' if form.emergency_contact_name.errors else '')) }}
+                            {% for e in form.emergency_contact_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.emergency_contact_no.label(class='form-label') }}
+                            {{ form.emergency_contact_no(class='form-control' + (' is-invalid' if form.emergency_contact_no.errors else '')) }}
+                            {% for e in form.emergency_contact_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary px-4">
+            <i class="fa-solid fa-floppy-disk me-2"></i>Save Changes
+        </button>
+        <a href="{{ url_for('members.view_member', member_id=member.id) }}" class="btn btn-outline-secondary">
+            Cancel
+        </a>
+    </div>
+</form>
+{% endblock %}

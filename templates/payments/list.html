@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Payments</h2>
+        <p>All payment records across members.</p>
+    </div>
+    <a href="{{ url_for('payments.create_payment') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Record Payment
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Payments</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">LKR {{ '{:,.0f}'.format(stats.total_revenue) }}</div>
+            <div class="stat-label">Total Revenue</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-primary">{{ stats.this_month }}</div>
+            <div class="stat-label">This Month (count)</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-info">LKR {{ '{:,.0f}'.format(stats.this_month_revenue) }}</div>
+            <div class="stat-label">This Month Revenue</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <!-- Filters -->
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+        <form method="GET" class="d-flex gap-2 flex-wrap align-items-center w-100">
+            <input type="text" name="search" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search member / ref no..." style="width:200px;">
+            <select name="method" class="form-select form-select-sm" style="width:160px;">
+                <option value="">All Methods</option>
+                {% for m in payment_methods %}
+                <option value="{{ m.value }}" {% if method_filter == m.value %}selected{% endif %}>
+                    {{ m.label }}
+                </option>
+                {% endfor %}
+            </select>
+            <input type="month" name="month" value="{{ month_filter }}" class="form-control form-control-sm"
+                   style="width:160px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            {% if search or method_filter or month_filter %}
+            <a href="{{ url_for('payments.list_payments') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if payments.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Member</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Date</th>
+                        <th>Membership</th>
+                        <th>Ref</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments.items %}
+                    <tr>
+                        <td class="text-muted small">{{ p.id }}</td>
+                        <td>
+                            <a href="{{ url_for('members.view_member', member_id=p.member.id) }}"
+                               class="fw-semibold text-decoration-none">{{ p.member.full_name }}</a>
+                        </td>
+                        <td class="fw-semibold">LKR {{ '{:,.2f}'.format(p.amount) }}</td>
+                        <td>
+                            <span class="badge bg-{{ p.method.badge_class }} bg-opacity-15 text-{{ p.method.badge_class }}">
+                                <i class="fa-solid {{ p.method.icon }} me-1"></i>{{ p.method.label }}
+                            </span>
+                        </td>
+                        <td class="text-muted small">{{ p.payment_date.strftime('%d %b %Y') }}</td>
+                        <td class="text-muted small">
+                            {% if p.membership %}
+                            <a href="{{ url_for('memberships.view_membership', membership_id=p.membership.id) }}"
+                               class="text-decoration-none small">#{{ p.membership.id }}</a>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-muted small">{{ p.reference_no or '—' }}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('payments.view_payment', payment_id=p.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if payments.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not payments.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('payments.list_payments', page=payments.prev_num, search=search, method=method_filter, month=month_filter) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in payments.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == payments.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('payments.list_payments', page=p, search=search, method=method_filter, month=month_filter) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not payments.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('payments.list_payments', page=payments.next_num, search=search, method=method_filter, month=month_filter) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-receipt fa-2x mb-3 d-block"></i>
+            No payments found.
+            <a href="{{ url_for('payments.create_payment') }}">Record one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Trainers</h2>
+        <p>Manage gym trainer profiles and accounts.</p>
+    </div>
+    <a href="{{ url_for('trainers.create_trainer') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Add Trainer
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-primary">{{ stats.total }}</div>
+            <div class="stat-label">Active Trainers</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-secondary">{{ stats.archived }}</div>
+            <div class="stat-label">Archived</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <!-- Tabs + Search -->
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+        <!-- Status tabs -->
+        <div class="d-flex gap-1 me-auto">
+            <a href="{{ url_for('trainers.list_trainers', status='active', search=search) }}"
+               class="btn btn-sm {% if status_filter != 'archived' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                Active
+            </a>
+            <a href="{{ url_for('trainers.list_trainers', status='archived', search=search) }}"
+               class="btn btn-sm {% if status_filter == 'archived' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+                Archived
+            </a>
+        </div>
+        <!-- Search -->
+        <form method="GET" class="d-flex gap-2 align-items-center">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="text" name="search" value="{{ search }}"
+                   class="form-control form-control-sm" placeholder="Search name / specialization..."
+                   style="width:230px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            {% if search %}
+            <a href="{{ url_for('trainers.list_trainers', status=status_filter) }}"
+               class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if trainers.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Trainer</th>
+                        <th>Specialization</th>
+                        <th>Experience</th>
+                        <th>Contact</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in trainers.items %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar">
+                                    {{ t.user.first_name[0]|upper }}{{ t.user.last_name[0]|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:13.5px;">
+                                        <a href="{{ url_for('trainers.view_trainer', trainer_id=t.id) }}"
+                                           class="text-dark text-decoration-none">{{ t.full_name }}</a>
+                                    </div>
+                                    <div class="text-muted" style="font-size:12px;">{{ t.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="font-size:13px;">
+                            {{ t.specialization or '—' }}
+                        </td>
+                        <td style="font-size:13px;">
+                            {% if t.experience_years is not none %}
+                            {{ t.experience_years }} yr{{ 's' if t.experience_years != 1 else '' }}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="font-size:13px;">{{ t.contact_no or '—' }}</td>
+                        <td>
+                            <span class="badge bg-{{ t.status_badge_class }}">{{ t.status_label }}</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('trainers.view_trainer', trainer_id=t.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if trainers.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not trainers.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('trainers.list_trainers', page=trainers.prev_num, status=status_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in trainers.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == trainers.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('trainers.list_trainers', page=p, status=status_filter, search=search) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not trainers.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('trainers.list_trainers', page=trainers.next_num, status=status_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-person-running fa-2x mb-3 d-block"></i>
+            {% if search %}No trainers match your search.
+            {% elif status_filter == 'archived' %}No archived trainers.
+            {% else %}No trainers yet.
+                <a href="{{ url_for('trainers.create_trainer') }}">Add the first one</a>.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="text-center py-5">
+    <div style="font-size:80px; color:#dee2e6; font-weight:800; line-height:1;">404</div>
+    <h3 class="fw-bold mt-3">Page Not Found</h3>
+    <p class="text-muted" style="max-width:400px; margin:0 auto 24px;">
+        The page you're looking for doesn't exist or has been moved.
+    </p>
+    <a href="{{ url_for('dashboard.home') }}" class="btn btn-primary">
+        <i class="fa-solid fa-house me-2"></i>Back to Dashboard
+    </a>
+</div>
+{% endblock %}

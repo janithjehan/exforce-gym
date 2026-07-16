@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('payments.buy') }}">Choose a Plan</a></li>
+        <li class="breadcrumb-item active">Pay Online</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Pay Online</h2>
+        <p>Review your order and proceed to PayHere secure checkout.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-receipt text-orange me-2"></i>Order Summary
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Package</dt>
+                    <dd class="col-sm-7">{{ package.name }}</dd>
+
+                    <dt class="col-sm-5">Duration</dt>
+                    <dd class="col-sm-7">{{ package.duration_label }}</dd>
+
+                    <dt class="col-sm-5">Start Date</dt>
+                    <dd class="col-sm-7">{{ start_date.strftime('%d %b %Y') }}</dd>
+
+                    <dt class="col-sm-5">End Date</dt>
+                    <dd class="col-sm-7">{{ end_date.strftime('%d %b %Y') }}</dd>
+
+                    <dt class="col-sm-5">Order ID</dt>
+                    <dd class="col-sm-7 text-muted small">{{ payhere_data.order_id }}</dd>
+                </dl>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Total Amount</span>
+                    <span class="fw-bold fs-5 text-success">LKR {{ '{:,.2f}'.format(package.price) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="processing" class="text-center py-4" style="display:none!important;">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <p class="text-muted">Redirecting to PayHere secure checkout...</p>
+        </div>
+
+        <div id="confirm-area" class="text-center">
+            <p class="text-muted small mb-3">
+                <i class="fa-solid fa-lock me-1"></i>
+                Payments are processed securely by PayHere.
+                Your card details are never stored on our servers.
+            </p>
+            <button id="pay-btn" class="btn btn-primary btn-lg w-100">
+                <i class="fa-solid fa-globe me-2"></i>Proceed to PayHere
+            </button>
+            <a href="{{ url_for('payments.buy') }}" class="btn btn-link text-muted mt-2 d-block">
+                &larr; Back to Package Selection
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden PayHere form -->
+<form id="payhere-form" method="POST" action="{{ payhere_url }}" style="display:none;">
+    {% for key, value in payhere_data.items() %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+    {% endfor %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('pay-btn').addEventListener('click', function () {
+        document.getElementById('confirm-area').style.display = 'none';
+        document.getElementById('processing').style.display = 'block';
+        setTimeout(function () {
+            document.getElementById('payhere-form').submit();
+        }, 800);
+    });
+</script>
+{% endblock %}

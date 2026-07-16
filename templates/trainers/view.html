@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.role.value == 'admin' %}
+        <li class="breadcrumb-item"><a href="{{ url_for('trainers.list_trainers') }}">Trainers</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ trainer.full_name }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>{{ trainer.full_name }}</h2>
+        <p>Trainer profile and details.</p>
+    </div>
+    {% if current_user.role.value == 'admin' %}
+    <div class="d-flex gap-2 flex-wrap">
+        {% if not trainer.is_archived %}
+        <a href="{{ url_for('trainers.edit_trainer', trainer_id=trainer.id) }}"
+           class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-pen me-1"></i>Edit Profile
+        </a>
+        <a href="{{ url_for('users.view_user', user_id=trainer.user_id) }}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-users-gear me-1"></i>User Account
+        </a>
+        <form method="POST" action="{{ url_for('trainers.archive_trainer', trainer_id=trainer.id) }}"
+              onsubmit="return confirm('Archive {{ trainer.full_name }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="fa-solid fa-archive me-1"></i>Archive
+            </button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('trainers.restore_trainer', trainer_id=trainer.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="fa-solid fa-rotate-left me-1"></i>Restore Trainer
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% if trainer.is_archived %}
+<div class="alert alert-secondary mb-4" style="font-size:13.5px;">
+    <i class="fa-solid fa-archive me-2"></i>This trainer profile is archived.
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- Profile Summary -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body text-center pt-4">
+                <div class="user-avatar user-avatar-lg mx-auto mb-3">
+                    {{ trainer.user.first_name[0]|upper }}{{ trainer.user.last_name[0]|upper }}
+                </div>
+                <h5 class="fw-bold mb-1">{{ trainer.full_name }}</h5>
+                <div class="text-muted mb-1" style="font-size:13px;">@{{ trainer.username }}</div>
+                <div class="text-muted mb-3" style="font-size:12px;">{{ trainer.email }}</div>
+                <span class="badge bg-{{ trainer.status_badge_class }} mb-3"
+                      style="font-size:12px; padding:6px 14px;">
+                    {{ trainer.status_label }}
+                </span>
+            </div>
+            <div class="divider mx-0 my-0"></div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-phone fa-fw me-2"></i>Contact</span>
+                        <span>{{ trainer.contact_no or '—' }}</span>
+                    </li>
+                    {% if trainer.experience_years is not none %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-clock fa-fw me-2"></i>Experience</span>
+                        <span>{{ trainer.experience_years }} year{{ 's' if trainer.experience_years != 1 else '' }}</span>
+                    </li>
+                    {% endif %}
+                    {% if trainer.specialization %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted"><i class="fa-solid fa-dumbbell fa-fw me-2"></i>Specialization</span>
+                        <span class="text-end" style="max-width:60%;">{{ trainer.specialization }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details -->
+    <div class="col-lg-8">
+        {% if trainer.bio %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-info text-orange me-2"></i>About
+            </div>
+            <div class="card-body" style="font-size:13.5px; white-space:pre-line;">{{ trainer.bio }}</div>
+        </div>
+        {% endif %}
+
+        {% if trainer.certifications %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-certificate text-orange me-2"></i>Certifications
+            </div>
+            <div class="card-body" style="font-size:13.5px; white-space:pre-line;">{{ trainer.certifications }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Attendance for this trainer -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="fa-solid fa-person-walking text-orange me-2"></i>Attendance (Recorded)</span>
+                {% if current_user.role.value == 'admin' %}
+                <a href="{{ url_for('attendance.list_attendance') }}"
+                   class="btn btn-sm btn-outline-secondary">
+                    View All <i class="fa-solid fa-arrow-right ms-1"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="empty-state py-4">
+                <i class="fa-solid fa-person-walking d-block" style="font-size:28px;"></i>
+                <p class="mt-2 mb-0" style="font-size:13px;">Attendance tracking is handled in the Attendance module.</p>
+            </div>
+        </div>
+
+        <!-- Record info -->
+        {% if current_user.role.value == 'admin' %}
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-info text-orange me-2"></i>Record Info
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Created By</span>
+                        <span>{{ trainer.created_by.full_name if trainer.created_by else '—' }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted">Created At</span>
+                        <span class="text-muted small">{{ trainer.created_at.strftime('%d %b %Y') }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

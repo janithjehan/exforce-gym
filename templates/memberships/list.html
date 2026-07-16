@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Memberships</h2>
+        <p>Track and manage member subscription plans.</p>
+    </div>
+    <a href="{{ url_for('memberships.create_membership') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Assign Membership
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">{{ stats.active }}</div>
+            <div class="stat-label">Active</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-warning">{{ stats.expiring_soon }}</div>
+            <div class="stat-label">Expiring in 30 Days</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-danger">{{ stats.expired }}</div>
+            <div class="stat-label">Expired</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <!-- Status tabs -->
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'active' %}active{% endif %}"
+                   href="{{ url_for('memberships.list_memberships', status='active', search=search) }}">Active</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'expired' %}active{% endif %}"
+                   href="{{ url_for('memberships.list_memberships', status='expired', search=search) }}">Expired</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'cancelled' %}active{% endif %}"
+                   href="{{ url_for('memberships.list_memberships', status='cancelled', search=search) }}">Cancelled</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('memberships.list_memberships', status='all', search=search) }}">All</a>
+            </li>
+        </ul>
+        <!-- Search -->
+        <form method="GET" class="ms-auto d-flex gap-2">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="text" name="search" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search member..." style="width:200px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            {% if search %}
+            <a href="{{ url_for('memberships.list_memberships', status=status_filter) }}"
+               class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if memberships.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Package</th>
+                        <th>Start</th>
+                        <th>Expires</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ms in memberships.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('members.view_member', member_id=ms.member.id) }}"
+                               class="fw-semibold text-decoration-none">{{ ms.member.full_name }}</a>
+                            <div class="text-muted small">{{ ms.member.email }}</div>
+                        </td>
+                        <td>
+                            {{ ms.package.name }}
+                            <div class="text-muted small">{{ ms.package.duration_label }}</div>
+                        </td>
+                        <td class="text-muted small">{{ ms.start_date.strftime('%d %b %Y') }}</td>
+                        <td class="small {% if ms.is_currently_active and ms.days_remaining <= 30 %}text-warning fw-semibold{% else %}text-muted{% endif %}">
+                            {{ ms.end_date.strftime('%d %b %Y') }}
+                            {% if ms.is_currently_active and ms.days_remaining <= 30 %}
+                            <div style="font-size:11px;">{{ ms.days_remaining }}d left</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ ms.status_badge_class }}">{{ ms.status_label }}</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('memberships.view_membership', membership_id=ms.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if memberships.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not memberships.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('memberships.list_memberships', page=memberships.prev_num, status=status_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in memberships.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == memberships.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('memberships.list_memberships', page=p, status=status_filter, search=search) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not memberships.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('memberships.list_memberships', page=memberships.next_num, status=status_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-credit-card fa-2x mb-3 d-block"></i>
+            No memberships found.
+            <a href="{{ url_for('memberships.create_membership') }}">Assign one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('packages.list_packages') }}">Packages</a></li>
+        <li class="breadcrumb-item active">{{ package.name }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>{{ package.name }}</h2>
+        <p>
+            <span class="badge bg-{{ package.status_badge_class }} me-2">{{ package.status_label }}</span>
+            {{ package.duration_label }} &middot; LKR {{ '{:,.2f}'.format(package.price) }}
+        </p>
+    </div>
+    {% if not package.is_archived %}
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('packages.edit_package', package_id=package.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-pen me-1"></i>Edit
+        </a>
+        <form method="POST" action="{{ url_for('packages.toggle_status', package_id=package.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if package.is_active %}
+            <button type="submit" class="btn btn-outline-warning btn-sm">
+                <i class="fa-solid fa-ban me-1"></i>Deactivate
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="fa-solid fa-circle-check me-1"></i>Activate
+            </button>
+            {% endif %}
+        </form>
+        <form method="POST" action="{{ url_for('packages.archive_package', package_id=package.id) }}"
+              onsubmit="return confirm('Archive this package? It will no longer be assignable.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-archive me-1"></i>Archive
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Package Details</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Name</dt>
+                    <dd class="col-sm-8">{{ package.name }}</dd>
+
+                    <dt class="col-sm-4">Duration</dt>
+                    <dd class="col-sm-8">{{ package.duration_label }}</dd>
+
+                    <dt class="col-sm-4">Price</dt>
+                    <dd class="col-sm-8">LKR {{ '{:,.2f}'.format(package.price) }}</dd>
+
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-{{ package.status_badge_class }}">{{ package.status_label }}</span>
+                    </dd>
+
+                    <dt class="col-sm-4">Benefits</dt>
+                    <dd class="col-sm-8">
+                        {% if package.description %}
+                        {{ package.description }}
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Audit Info</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Created</dt>
+                    <dd class="col-sm-8">
+                        {{ package.created_at.strftime('%d %b %Y, %H:%M') }}
+                        {% if package.created_by %}
+                        <span class="text-muted">by {{ package.created_by.full_name }}</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Last Updated</dt>
+                    <dd class="col-sm-8">
+                        {{ package.updated_at.strftime('%d %b %Y, %H:%M') }}
+                        {% if package.updated_by %}
+                        <span class="text-muted">by {{ package.updated_by.full_name }}</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Trainer Dashboard</h2>
+        <p>Welcome back, <strong>{{ current_user.first_name }}</strong>.</p>
+    </div>
+    {% if trainer_profile %}
+    <a href="{{ url_for('trainers.view_trainer', trainer_id=trainer_profile.id) }}"
+       class="btn btn-outline-primary btn-sm">
+        <i class="fa-solid fa-id-card me-1"></i>View Full Profile
+    </a>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        {% if trainer_profile %}
+        <!-- Profile summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-person-running text-orange me-2"></i>My Trainer Profile
+            </div>
+            <div class="card-body">
+                <div class="row g-3" style="font-size:13.5px;">
+                    {% if trainer_profile.specialization %}
+                    <div class="col-md-6">
+                        <div class="text-muted small mb-1">Specialization</div>
+                        <div class="fw-semibold">{{ trainer_profile.specialization }}</div>
+                    </div>
+                    {% endif %}
+                    {% if trainer_profile.experience_years is not none %}
+                    <div class="col-md-6">
+                        <div class="text-muted small mb-1">Experience</div>
+                        <div class="fw-semibold">
+                            {{ trainer_profile.experience_years }} year{{ 's' if trainer_profile.experience_years != 1 else '' }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if trainer_profile.contact_no %}
+                    <div class="col-md-6">
+                        <div class="text-muted small mb-1">Contact</div>
+                        <div class="fw-semibold">{{ trainer_profile.contact_no }}</div>
+                    </div>
+                    {% endif %}
+                    {% if trainer_profile.certifications %}
+                    <div class="col-12">
+                        <div class="text-muted small mb-1">Certifications</div>
+                        <div>{{ trainer_profile.certifications }}</div>
+                    </div>
+                    {% endif %}
+                    {% if trainer_profile.bio %}
+                    <div class="col-12">
+                        <div class="text-muted small mb-1">Bio</div>
+                        <div style="white-space:pre-line;">{{ trainer_profile.bio }}</div>
+                    </div>
+                    {% endif %}
+                    {% if not trainer_profile.is_profile_complete %}
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0" style="font-size:13px;">
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                            Your trainer profile is incomplete. Contact your admin to update your specialization and bio.
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mb-4 p-4 text-center">
+            <i class="fa-solid fa-person-running fa-2x text-orange mb-3 opacity-50"></i>
+            <p class="text-muted mb-0" style="font-size:13.5px;">
+                Your trainer profile hasn't been set up yet. Contact admin.
+            </p>
+        </div>
+        {% endif %}
+
+        <div class="card p-4 text-center" style="min-height:160px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+            <i class="fa-solid fa-calendar-days fa-2x text-orange mb-3 opacity-50"></i>
+            <h5 class="fw-semibold mb-1">Schedules & Workouts coming soon</h5>
+            <p class="text-muted mb-0" style="font-size:13.5px; max-width:360px;">
+                Member assignments, workout library, and schedule management will appear here.
+            </p>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-user text-orange me-2"></i>My Account
+            </div>
+            <div class="card-body text-center pt-4">
+                <div class="user-avatar user-avatar-lg mx-auto mb-3">
+                    {{ current_user.first_name[0] | upper }}{{ current_user.last_name[0] | upper }}
+                </div>
+                <div class="fw-bold" style="font-size:16px;">{{ current_user.full_name }}</div>
+                <div class="text-muted mb-1" style="font-size:13px;">@{{ current_user.username }}</div>
+                {% if current_user.email %}
+                <div class="text-muted mb-2" style="font-size:12px;">{{ current_user.email }}</div>
+                {% endif %}
+                <span class="badge role-badge-trainer">Trainer</span>
+                <hr>
+                <div class="d-grid gap-2">
+                    {% if trainer_profile %}
+                    <a href="{{ url_for('trainers.view_trainer', trainer_id=trainer_profile.id) }}"
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="fa-solid fa-id-card me-2"></i>View My Profile
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa-solid fa-key me-2"></i>Change Password
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

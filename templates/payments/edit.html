@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('payments.list_payments') }}">Payments</a></li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('payments.view_payment', payment_id=payment.id) }}">Payment #{{ payment.id }}</a>
+        </li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Edit Payment #{{ payment.id }}</h2>
+        <p>{{ payment.member.full_name }} &middot; All changes are logged.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="alert alert-warning" style="font-size:13.5px;">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Every field change will be recorded in the audit log with your name and timestamp.
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-pen text-orange me-2"></i>Edit Payment Details
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            {{ form.amount.label(class='form-label fw-semibold') }}
+                            <div class="input-group">
+                                <span class="input-group-text">LKR</span>
+                                {{ form.amount(class='form-control' + (' is-invalid' if form.amount.errors else ''), placeholder='0.00') }}
+                                {% for e in form.amount.errors %}
+                                <div class="invalid-feedback">{{ e }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            {{ form.method.label(class='form-label fw-semibold') }}
+                            {{ form.method(class='form-select' + (' is-invalid' if form.method.errors else '')) }}
+                            {% for e in form.method.errors %}
+                            <div class="invalid-feedback">{{ e }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            {{ form.payment_date.label(class='form-label fw-semibold') }}
+                            {{ form.payment_date(class='form-control' + (' is-invalid' if form.payment_date.errors else '')) }}
+                            {% for e in form.payment_date.errors %}
+                            <div class="invalid-feedback">{{ e }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-sm-6">
+                            {{ form.reference_no.label(class='form-label fw-semibold') }}
+                            {{ form.reference_no(class='form-control' + (' is-invalid' if form.reference_no.errors else '')) }}
+                            {% for e in form.reference_no.errors %}
+                            <div class="invalid-feedback">{{ e }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.notes.label(class='form-label fw-semibold') }}
+                        {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                        {% for e in form.notes.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('payments.view_payment', payment_id=payment.id) }}"
+                           class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

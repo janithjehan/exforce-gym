@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Packages</h2>
+        <p>Manage gym membership plans available for purchase.</p>
+    </div>
+    <a href="{{ url_for('packages.create_package') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>New Package
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ total_active }}</div>
+            <div class="stat-label">Active Packages</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ total_inactive }}</div>
+            <div class="stat-label">Inactive Packages</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'active' %}active{% endif %}"
+                   href="{{ url_for('packages.list_packages', status='active') }}">Active</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'inactive' %}active{% endif %}"
+                   href="{{ url_for('packages.list_packages', status='inactive') }}">Inactive</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('packages.list_packages', status='all') }}">All</a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="card-body p-0">
+        {% if packages.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Package Name</th>
+                        <th>Duration</th>
+                        <th>Price (LKR)</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pkg in packages.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('packages.view_package', package_id=pkg.id) }}" class="fw-semibold text-decoration-none">
+                                {{ pkg.name }}
+                            </a>
+                            {% if pkg.description %}
+                            <div class="text-muted small text-truncate" style="max-width:260px;">{{ pkg.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td>{{ pkg.duration_label }}</td>
+                        <td>{{ '{:,.2f}'.format(pkg.price) }}</td>
+                        <td>
+                            <span class="badge bg-{{ pkg.status_badge_class }}">{{ pkg.status_label }}</span>
+                        </td>
+                        <td class="text-muted small">{{ pkg.created_at.strftime('%d %b %Y') }}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('packages.view_package', package_id=pkg.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if packages.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not packages.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('packages.list_packages', page=packages.prev_num, status=status_filter) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in packages.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == packages.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('packages.list_packages', page=p, status=status_filter) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not packages.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('packages.list_packages', page=packages.next_num, status=status_filter) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-box-open fa-2x mb-3 d-block"></i>
+            No packages found.
+            {% if status_filter != 'all' %}
+            <a href="{{ url_for('packages.list_packages', status='all') }}">View all</a> or
+            {% endif %}
+            <a href="{{ url_for('packages.create_package') }}">create one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('memberships.list_memberships') }}">Memberships</a></li>
+        <li class="breadcrumb-item active">Assign Membership</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Assign Membership</h2>
+        <p>Link a member to an active package plan.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.member_id.label(class='form-label') }}
+                        {{ form.member_id(class='form-select' + (' is-invalid' if form.member_id.errors else '')) }}
+                        {% for e in form.member_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.package_id.label(class='form-label') }}
+                        {{ form.package_id(class='form-select' + (' is-invalid' if form.package_id.errors else '')) }}
+                        {% for e in form.package_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        <div class="form-text">Only active packages are shown.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.start_date.label(class='form-label') }}
+                        {{ form.start_date(class='form-control' + (' is-invalid' if form.start_date.errors else '')) }}
+                        {% for e in form.start_date.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        <div class="form-text">End date is calculated automatically from the package duration.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.notes.label(class='form-label') }}
+                        {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                        {% for e in form.notes.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('memberships.list_memberships') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

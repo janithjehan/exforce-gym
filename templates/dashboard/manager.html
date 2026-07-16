@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Manager Dashboard</h2>
+        <p>Welcome back, <strong>{{ current_user.first_name }}</strong>. Here's your gym overview.</p>
+    </div>
+</div>
+
+<!-- ── Stat Cards ── -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-primary bg-opacity-10 mb-3">
+                <i class="fa-solid fa-id-card text-primary"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_members }}</div>
+            <div class="stat-label">Total Members</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-success bg-opacity-10 mb-3">
+                <i class="fa-solid fa-circle-check text-success"></i>
+            </div>
+            <div class="stat-value">{{ stats.active_memberships }}</div>
+            <div class="stat-label">Active Memberships</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-warning bg-opacity-10 mb-3">
+                <i class="fa-solid fa-clock text-warning"></i>
+            </div>
+            <div class="stat-value">{{ stats.expiring_soon }}</div>
+            <div class="stat-label">Expiring (30 days)</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-warning bg-opacity-10 mb-3">
+                <i class="fa-solid fa-triangle-exclamation text-warning"></i>
+            </div>
+            <div class="stat-value">{{ stats.incomplete_profiles }}</div>
+            <div class="stat-label">Incomplete Profiles</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-success bg-opacity-10 mb-3">
+                <i class="fa-solid fa-credit-card text-success"></i>
+            </div>
+            <div class="stat-value text-success" style="font-size:18px;">
+                LKR {{ '{:,.0f}'.format(stats.revenue_this_month) }}
+            </div>
+            <div class="stat-label">Revenue This Month</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-primary bg-opacity-10 mb-3">
+                <i class="fa-solid fa-person-walking text-primary"></i>
+            </div>
+            <div class="stat-value text-primary">{{ stats.today_checkins }}</div>
+            <div class="stat-label">Today's Check-ins</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Recent Members -->
+    <div class="col-lg-7">
+        <div class="card table-card">
+            <div class="card-header">
+                <span><i class="fa-solid fa-id-card text-orange me-2"></i>Recently Joined Members</span>
+                <a href="{{ url_for('members.list_members') }}" class="btn btn-sm btn-outline-secondary">
+                    View All <i class="fa-solid fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+
+            {% if recent_members %}
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Contact</th>
+                        <th>Joined</th>
+                        <th>Membership</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in recent_members %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar">
+                                    {{ m.user.first_name[0]|upper }}{{ m.user.last_name[0]|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:13.5px;">
+                                        <a href="{{ url_for('members.view_member', member_id=m.id) }}"
+                                           class="text-dark text-decoration-none">{{ m.full_name }}</a>
+                                    </div>
+                                    <div class="text-muted" style="font-size:12px;">{{ m.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="font-size:13px;">{{ m.contact_no or '—' }}</td>
+                        <td class="text-muted" style="font-size:12.5px;">{{ m.join_date.strftime('%d %b %Y') }}</td>
+                        <td>
+                            {% if m.is_active_member %}
+                            <span class="badge bg-success bg-opacity-15 text-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-warning bg-opacity-15 text-warning">No Plan</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state py-5">
+                <i class="fa-solid fa-id-card d-block"></i>
+                <p>No members yet.</p>
+                <a href="{{ url_for('members.create_member') }}" class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-user-plus me-1"></i>Add First Member
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-bolt text-orange me-2"></i>Quick Actions
+            </div>
+            <div class="card-body d-grid gap-3">
+                <a href="{{ url_for('members.create_member') }}" class="btn btn-primary">
+                    <i class="fa-solid fa-user-plus me-2"></i>Add New Member
+                </a>
+                <a href="{{ url_for('members.list_members') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-id-card me-2"></i>View All Members
+                </a>
+                <a href="{{ url_for('memberships.create_membership') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-id-badge me-2"></i>Assign Membership
+                </a>
+                <a href="{{ url_for('payments.create_payment') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-credit-card me-2"></i>Record Payment
+                </a>
+                <a href="{{ url_for('attendance.create_attendance') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-person-walking me-2"></i>Mark Attendance
+                </a>
+                <a href="{{ url_for('trainers.list_trainers') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-person-running me-2"></i>View Trainers
+                </a>
+                <a href="{{ url_for('packages.list_packages') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-box-open me-2"></i>Manage Packages
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

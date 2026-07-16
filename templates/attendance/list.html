@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Attendance</h2>
+        <p>Track member check-ins and check-outs.</p>
+    </div>
+    <a href="{{ url_for('attendance.create_attendance') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Record Attendance
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-primary">{{ stats.today }}</div>
+            <div class="stat-label">Today's Check-ins</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-info">{{ stats.this_week }}</div>
+            <div class="stat-label">This Week</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">{{ stats.checked_in }}</div>
+            <div class="stat-label">Currently In Gym</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">All-Time Records</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <!-- Filters -->
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+        <form method="GET" class="d-flex gap-2 flex-wrap align-items-center w-100">
+            <input type="text" name="search" value="{{ search }}"
+                   class="form-control form-control-sm" placeholder="Search member..."
+                   style="width:200px;">
+            <input type="date" name="date" value="{{ date_filter }}"
+                   class="form-control form-control-sm" style="width:160px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            {% if search or date_filter %}
+            <a href="{{ url_for('attendance.list_attendance') }}"
+               class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if records.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Member</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records.items %}
+                    <tr>
+                        <td class="text-muted small">{{ r.id }}</td>
+                        <td>
+                            <a href="{{ url_for('members.view_member', member_id=r.member.id) }}"
+                               class="fw-semibold text-decoration-none">{{ r.member.full_name }}</a>
+                        </td>
+                        <td class="text-muted small">{{ r.check_in.strftime('%d %b %Y, %H:%M') }}</td>
+                        <td class="text-muted small">
+                            {{ r.check_out.strftime('%d %b %Y, %H:%M') if r.check_out else '—' }}
+                        </td>
+                        <td class="text-muted small">{{ r.duration_label }}</td>
+                        <td>
+                            {% if r.is_checked_out %}
+                            <span class="badge bg-secondary bg-opacity-15 text-secondary">Done</span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success">In Gym</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('attendance.view_attendance', attendance_id=r.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if records.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('attendance.list_attendance', page=records.prev_num, search=search, date=date_filter) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == records.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('attendance.list_attendance', page=p, search=search, date=date_filter) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not records.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('attendance.list_attendance', page=records.next_num, search=search, date=date_filter) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-person-walking fa-2x mb-3 d-block"></i>
+            No attendance records found.
+            <a href="{{ url_for('attendance.create_attendance') }}">Record one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

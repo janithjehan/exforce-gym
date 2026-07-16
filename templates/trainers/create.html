@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('trainers.list_trainers') }}">Trainers</a></li>
+        <li class="breadcrumb-item active">Add Trainer</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Add Trainer</h2>
+        <p>Create a user account and trainer profile in one step.</p>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('trainers.create_trainer') }}" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="row g-4">
+        <!-- Account Details -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="fa-solid fa-circle-user text-orange me-2"></i>Account Details
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            {{ form.first_name.label(class='form-label') }}
+                            {{ form.first_name(class='form-control' + (' is-invalid' if form.first_name.errors else '')) }}
+                            {% for e in form.first_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.last_name.label(class='form-label') }}
+                            {{ form.last_name(class='form-control' + (' is-invalid' if form.last_name.errors else '')) }}
+                            {% for e in form.last_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.username.label(class='form-label') }}
+                            {{ form.username(class='form-control' + (' is-invalid' if form.username.errors else '')) }}
+                            {% for e in form.username.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.email.label(class='form-label') }}
+                            {{ form.email(class='form-control' + (' is-invalid' if form.email.errors else '')) }}
+                            {% for e in form.email.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.phone.label(class='form-label') }}
+                            {{ form.phone(class='form-control' + (' is-invalid' if form.phone.errors else '')) }}
+                            {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.password.label(class='form-label') }}
+                            {{ form.password(class='form-control' + (' is-invalid' if form.password.errors else '')) }}
+                            {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            <div class="form-text" style="font-size:11.5px;">Min. 8 chars, letter + number.</div>
+                        </div>
+                        <div class="col-6">
+                            {{ form.confirm_password.label(class='form-label') }}
+                            {{ form.confirm_password(class='form-control' + (' is-invalid' if form.confirm_password.errors else '')) }}
+                            {% for e in form.confirm_password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trainer Profile -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="fa-solid fa-person-running text-orange me-2"></i>Trainer Profile
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-8">
+                            {{ form.specialization.label(class='form-label') }}
+                            {{ form.specialization(class='form-control' + (' is-invalid' if form.specialization.errors else '')) }}
+                            {% for e in form.specialization.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-4">
+                            {{ form.experience_years.label(class='form-label') }}
+                            {{ form.experience_years(class='form-control' + (' is-invalid' if form.experience_years.errors else ''), type='number', min='0', max='60') }}
+                            {% for e in form.experience_years.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.contact_no.label(class='form-label') }}
+                            {{ form.contact_no(class='form-control' + (' is-invalid' if form.contact_no.errors else '')) }}
+                            {% for e in form.contact_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.certifications.label(class='form-label') }}
+                            {{ form.certifications(class='form-control' + (' is-invalid' if form.certifications.errors else '')) }}
+                            {% for e in form.certifications.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.bio.label(class='form-label') }}
+                            {{ form.bio(class='form-control' + (' is-invalid' if form.bio.errors else '')) }}
+                            {% for e in form.bio.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary px-4">
+            <i class="fa-solid fa-person-running me-2"></i>Create Trainer
+        </button>
+        <a href="{{ url_for('trainers.list_trainers') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}
