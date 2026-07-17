@@ -304,6 +304,8 @@ Fields: id, user_id (FK users, unique), specialization, bio, experience_years, c
 | /payments      | payments_bp      | Admin+Manager                     |
 | /attendance    | attendance_bp    | Admin+Manager+Trainer / Member-own |
 | /trainers      | trainers_bp      | Admin+Manager / Trainer-own       |
+| /workouts      | workouts_bp      | Admin+Trainer                     |
+| /schedules     | schedules_bp     | Admin+Trainer manage, Manager view, Member-own |
 | /dashboard     | dashboard_bp     | Any logged-in                     |
 
 ---
@@ -392,5 +394,103 @@ Manager owns the **gym floor** (operations). Admin owns the **system** (accounts
 
 ---
 
+## SRS 3.8 — Workout Module (Completed)
+
+### SRS Requirements Covered
+- FR-WRK-01: Metadata — difficulty level (enum) + equipment_needed (free text, empty = bodyweight)
+- FR-WRK-02: All routes protected by `@admin_or_trainer_required` (create/update restricted to Admin/Trainer per SRS)
+
+### Model: Workout (workouts table) — app/models/workout.py
+Fields: id, name, workout_type (enum), muscle_group (enum), difficulty (enum), equipment_needed (200, nullable), instructions (Text), is_active, is_archived, created_by_id, updated_by_id, created_at, updated_at
+- Enums: `WorkoutType` (STRENGTH/CARDIO/FLEXIBILITY/BALANCE/ENDURANCE), `MuscleGroup` (CHEST/BACK/SHOULDERS/BICEPS/TRICEPS/LEGS/GLUTES/CORE/FULL_BODY), `DifficultyLevel` (BEGINNER/INTERMEDIATE/ADVANCED, has badge_class)
+- `equipment_label` — equipment_needed or 'None (bodyweight)'
+- `status_label` / `status_badge_class` — same pattern as Package
+
+### Workouts Blueprint (/workouts) — Admin + Trainer only
+- GET `/workouts/` — list; active/inactive/all tabs + name search + type/muscle/difficulty filters + pagination (15/page)
+- GET/POST `/workouts/create` — unique-name validated (case-insensitive, excludes archived)
+- GET `/workouts/<id>`
+- GET/POST `/workouts/<id>/edit` — blocked if archived
+- POST `/workouts/<id>/toggle-status`
+- POST `/workouts/<id>/archive` — soft delete, sets is_active=False
+
+### Other updates
+- Sidebar: Workouts nav link activated for Admin and Trainer sections
+- Admin dashboard: Workouts = Live in module status
+- Trainer dashboard: Workout Library quick-access card added (Schedules still "coming soon")
+- **DB fix (2026-07-17):** Postgres `userrole` enum was missing the `MANAGER` value (type predated the Manager role) — added via `ALTER TYPE userrole ADD VALUE 'MANAGER'`. Creating manager accounts works now.
+
+---
+
+## SRS 3.9 — Schedule Module (Completed)
+
+### SRS Requirements Covered
+- FR-SCH-01: Schedule = Member + Trainer + date range + 1..n ScheduleItems (workout, day_label, sets, reps, rest_seconds, notes)
+- FR-SCH-02: Versioning — every edit bumps `Schedule.version` and writes a `ScheduleEditLog` row (editor, version, change summary); shown as Edit History on the view page (staff only)
+- FR-SCH-03: Members view-only + can mark own schedule completed; PDF download for assigned member
+
+### Models (app/models/schedule.py)
+- `Schedule` (schedules): id, member_id (FK), trainer_id (FK), title, start_date, end_date, status (enum), notes, version, audit fields
+  - `ScheduleStatus` enum: PLANNED/COMPLETED/CANCELLED (label + badge_class)
+  - `is_current` — PLANNED and today within range; `date_range_label`
+  - Member.schedules / Trainer.schedules dynamic backrefs
+- `ScheduleItem` (schedule_items): schedule_id, workout_id (FK workouts), day_label (e.g. "Monday"/"Day 1"), sets, reps (string, allows "8-12"), rest_seconds, notes, sort_order; `rest_label` ("2 min"/"90 sec"); cascade delete-orphan from Schedule.items
+- `ScheduleEditLog` (schedule_edit_logs): schedule_id, edited_by_id, version, summary, created_at
+
+### Schedules Blueprint (/schedules)
+- GET `/schedules/` — Admin+Manager+Trainer; planned/completed/cancelled/all tabs + member/title search + stats + pagination (15/page)
+- GET/POST `/schedules/create` — Admin+Trainer; `?member_id=` pre-fill; trainer's own profile is forced as trainer (select locked); dynamic item rows (plain inputs `item_*` parsed by `parse_item_rows()` in forms.py, header fields via ScheduleForm)
+- GET `/schedules/<id>` — staff any; member own only (403)
+- GET/POST `/schedules/<id>/edit` — Admin any, Trainer own only; blocked unless PLANNED; replaces items, bumps version, writes edit log; no-op edits detected ("No changes detected")
+- POST `/schedules/<id>/complete` — Admin, own Trainer, or assigned Member; PLANNED only
+- POST `/schedules/<id>/cancel` — Admin / own Trainer; PLANNED only
+- GET `/schedules/<id>/pdf` — same access as view; reportlab-generated A4 PDF, items grouped by day (`pdf.py: build_schedule_pdf`)
+- GET `/schedules/my-schedules` — Member; own schedules, 10/page, PDF buttons
+
+### Template notes
+- `templates/schedules/_form.html` — shared by create/edit; JS `<template>` row cloning, day label carried to next row, existing items injected via `existing_items | tojson`
+- Trainer ownership helper `_can_manage()` in routes.py; view passes `can_manage` to template
+
+### Other updates
+- Dependency: `reportlab==4.2.2` added to requirements.txt (PDF export)
+- Sidebar: Schedules live for Admin, Manager, Trainer; "My Schedule" live for Member
+- Admin dashboard: Schedules = Live in module status
+- Trainer dashboard: Schedules card with New Schedule / View All buttons
+
+---
+
+## SRS 3.10 — Equipment Module (Completed)
+
+### SRS Requirements Covered
+- FR-EQP-01: Equipment has Name, Category (enum), Image (upload), Quantity, Status (Available/Out of Service), Notes
+- FR-EQP-02: Admin+Manager+Trainer can view; only Admin can create/update/archive
+- FR-EQP-03: Equipment library visible to Trainers for schedule planning
+
+### Model: Equipment (equipments table) — app/models/equipment.py
+Fields: id, name, category (enum), image_filename (nullable), quantity (int, default 1), status (enum), notes (Text), is_archived, created_by_id, updated_by_id, created_at, updated_at
+- Enums: `EquipmentCategory` (CARDIO/STRENGTH_MACHINE/FREE_WEIGHTS/FUNCTIONAL/ACCESSORIES/OTHER), `EquipmentStatus` (AVAILABLE/OUT_OF_SERVICE, has label + badge_class)
+- `image_path` — static-relative path (`uploads/equipment/<file>`) for url_for('static', ...); None if no image
+- `is_available`, `status_label`, `status_badge_class` — same pattern as Workout (Archived overrides)
+
+### Image Upload
+- Files stored in `app/static/uploads/equipment/` (dir auto-created; `.gitkeep` committed)
+- Saved as `<uuid4hex>.<ext>`; allowed: jpg/jpeg/png/gif/webp (FileAllowed validator)
+- Edit: new upload replaces + deletes old file; `remove_image` checkbox deletes without replacing; deletion is best-effort (never fails the request)
+- Forms use `enctype="multipart/form-data"`
+
+### Equipment Blueprint (/equipment) — Admin manage, Manager+Trainer view
+- GET `/equipment/` — list; all/available/out_of_service tabs + name search + category filter + stats (types, total units, out-of-service) + pagination (15/page); thumbnails in table
+- GET/POST `/equipment/create` — Admin only; unique-name validated (case-insensitive, excludes archived)
+- GET `/equipment/<id>` — view (image, details, notes, audit info)
+- GET/POST `/equipment/<id>/edit` — Admin only; blocked if archived
+- POST `/equipment/<id>/toggle-status` — Admin only; flips AVAILABLE ↔ OUT_OF_SERVICE
+- POST `/equipment/<id>/archive` — Admin only; soft delete
+
+### Other updates
+- Sidebar: Equipment nav link live for Admin (Gym Info), Manager (Staff & Activity), Trainer (My Work); admin/manager/trainer templates hide New/Edit/status buttons from non-admins via `current_user.is_admin`
+- Admin dashboard: Equipment = Live in module status
+
+---
+
 ## Next Modules (SRS order)
-3.8 Workout → 3.9 Schedule → 3.10 Equipment → 3.11 Supplement → 3.12 Measurements → 3.13 Feedback
+3.11 Supplement → 3.12 Measurements → 3.13 Feedback

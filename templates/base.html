@@ -97,27 +97,27 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('schedules.list_schedules') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('schedules.') %}active{% endif %}">
                 <i class="fa-solid fa-calendar-days"></i>
                 Schedules
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('workouts.list_workouts') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('workouts.') %}active{% endif %}">
                 <i class="fa-solid fa-dumbbell"></i>
                 Workouts
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
 
         <li><div class="sidebar-section-label">Gym Info</div></li>
 
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('equipment.list_equipment') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('equipment.') %}active{% endif %}">
                 <i class="fa-solid fa-wrench"></i>
                 Equipment
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">
@@ -192,10 +192,17 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('schedules.list_schedules') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('schedules.') %}active{% endif %}">
                 <i class="fa-solid fa-calendar-days"></i>
                 Schedules
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('equipment.list_equipment') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('equipment.') %}active{% endif %}">
+                <i class="fa-solid fa-wrench"></i>
+                Equipment
             </a>
         </li>
         <li class="nav-item">
@@ -225,17 +232,17 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('schedules.list_schedules') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('schedules.') %}active{% endif %}">
                 <i class="fa-solid fa-calendar-days"></i>
                 Schedules
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('workouts.list_workouts') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('workouts.') %}active{% endif %}">
                 <i class="fa-solid fa-dumbbell"></i>
                 Workouts
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">
@@ -246,10 +253,10 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('equipment.list_equipment') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('equipment.') %}active{% endif %}">
                 <i class="fa-solid fa-wrench"></i>
                 Equipment
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
 
@@ -265,10 +272,10 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('schedules.my_schedules') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('schedules.') %}active{% endif %}">
                 <i class="fa-solid fa-calendar-days"></i>
                 My Schedule
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">

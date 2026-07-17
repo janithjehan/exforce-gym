@@ -51,6 +51,9 @@ def create_app(config_name=None):
     from app.blueprints.attendance import attendance_bp
     from app.blueprints.trainers import trainers_bp
     from app.blueprints.notifications import notifications_bp
+    from app.blueprints.workouts import workouts_bp
+    from app.blueprints.schedules import schedules_bp
+    from app.blueprints.equipment import equipment_bp
     from app.blueprints.dashboard import dashboard_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -62,6 +65,9 @@ def create_app(config_name=None):
     app.register_blueprint(attendance_bp, url_prefix='/attendance')
     app.register_blueprint(trainers_bp, url_prefix='/trainers')
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
+    app.register_blueprint(workouts_bp, url_prefix='/workouts')
+    app.register_blueprint(schedules_bp, url_prefix='/schedules')
+    app.register_blueprint(equipment_bp, url_prefix='/equipment')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
     # Unread in-app notification badge for members (sidebar)
