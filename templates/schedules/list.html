@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Schedules</h2>
+        <p>Workout plans trainers have assigned to members.</p>
+    </div>
+    {% if current_user.role.value in ('admin', 'trainer') %}
+    <a href="{{ url_for('schedules.create_schedule') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>New Schedule
+    </a>
+    {% endif %}
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-primary">{{ stats.planned }}</div>
+            <div class="stat-label">Planned</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">{{ stats.completed }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.cancelled }}</div>
+            <div class="stat-label">Cancelled</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'planned' %}active{% endif %}"
+                   href="{{ url_for('schedules.list_schedules', status='planned') }}">Planned</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'completed' %}active{% endif %}"
+                   href="{{ url_for('schedules.list_schedules', status='completed') }}">Completed</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'cancelled' %}active{% endif %}"
+                   href="{{ url_for('schedules.list_schedules', status='cancelled') }}">Cancelled</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('schedules.list_schedules', status='all') }}">All</a>
+            </li>
+        </ul>
+
+        <form method="GET" class="d-flex gap-2 ms-auto">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search member or title... (comma-separated)" style="width:230px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if schedules.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Plan</th>
+                        <th>Member</th>
+                        <th>Trainer</th>
+                        <th>Date Range</th>
+                        <th>Items</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in schedules.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('schedules.view_schedule', schedule_id=s.id) }}" class="fw-semibold text-decoration-none">
+                                {{ s.title }}
+                            </a>
+                            <div class="text-muted small">v{{ s.version }}</div>
+                        </td>
+                        <td>{{ s.member.full_name }}</td>
+                        <td class="text-muted">{{ s.trainer.full_name }}</td>
+                        <td class="text-muted small">{{ s.date_range_label }}</td>
+                        <td class="text-muted small">{{ s.items|length }}</td>
+                        <td>
+                            <span class="badge bg-{{ s.status.badge_class }} bg-opacity-15 text-{{ s.status.badge_class }}">
+                                {{ s.status.label }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('schedules.view_schedule', schedule_id=s.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if schedules.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not schedules.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('schedules.list_schedules', page=schedules.prev_num, status=status_filter, q=search) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in schedules.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == schedules.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('schedules.list_schedules', page=p, status=status_filter, q=search) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not schedules.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('schedules.list_schedules', page=schedules.next_num, status=status_filter, q=search) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-calendar-days fa-2x mb-3 d-block"></i>
+            No schedules found.
+            {% if current_user.role.value in ('admin', 'trainer') %}
+            <a href="{{ url_for('schedules.create_schedule') }}">Create one</a>.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

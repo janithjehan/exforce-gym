@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('supplements.list_supplements') }}">Supplements</a></li>
+        <li class="breadcrumb-item active">New Supplement</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>New Supplement</h2>
+        <p>Add a supplement to the catalog.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.name.label(class='form-label') }}
+                        {{ form.name(class='form-control' + (' is-invalid' if form.name.errors else '')) }}
+                        {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            {{ form.supplement_type.label(class='form-label') }}
+                            {{ form.supplement_type(class='form-select' + (' is-invalid' if form.supplement_type.errors else '')) }}
+                            {% for e in form.supplement_type.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-sm-6">
+                            {{ form.brand.label(class='form-label') }}
+                            {{ form.brand(class='form-control' + (' is-invalid' if form.brand.errors else '')) }}
+                            {% for e in form.brand.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-4">
+                            {{ form.price.label(class='form-label') }}
+                            {{ form.price(class='form-control' + (' is-invalid' if form.price.errors else '')) }}
+                            {% for e in form.price.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.stock_qty.label(class='form-label') }}
+                            {{ form.stock_qty(class='form-control' + (' is-invalid' if form.stock_qty.errors else '')) }}
+                            {% for e in form.stock_qty.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.status.label(class='form-label') }}
+                            {{ form.status(class='form-select' + (' is-invalid' if form.status.errors else '')) }}
+                            {% for e in form.status.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.description.label(class='form-label') }}
+                        {{ form.description(class='form-control' + (' is-invalid' if form.description.errors else '')) }}
+                        {% for e in form.description.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('supplements.list_supplements') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

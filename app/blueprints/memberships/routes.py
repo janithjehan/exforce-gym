@@ -10,6 +10,7 @@ from app.models.membership import Membership, MembershipStatus
 from app.models.package import Package
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_required, admin_or_manager_required
+from app.utils.search import parse_search_terms, multi_term_filter
 
 MEMBERSHIPS_PER_PAGE = 20
 
@@ -29,15 +30,11 @@ def list_memberships():
         .join(User, Member.user_id == User.id)
     )
 
-    if search:
-        like = f'%{search}%'
-        query = query.filter(
-            db.or_(
-                User.first_name.ilike(like),
-                User.last_name.ilike(like),
-                User.email.ilike(like),
-            )
-        )
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.first_name, User.last_name, User.email,
+        ]))
 
     if status_filter == 'active':
         from datetime import date

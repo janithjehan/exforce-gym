@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.is_admin %}
+        <li class="breadcrumb-item"><a href="{{ url_for('measurements.list_measurements') }}">Measurements</a></li>
+        {% else %}
+        <li class="breadcrumb-item"><a href="{{ url_for('measurements.my_measurements') }}">My Measurements</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Measurement #{{ record.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Measurement #{{ record.id }}</h2>
+        <p>{{ record.member.full_name }} — {{ record.measured_on.strftime('%d %B %Y') }}</p>
+    </div>
+    <a href="{{ url_for('measurements.edit_measurement', measurement_id=record.id) }}"
+       class="btn btn-outline-primary">
+        <i class="fa-solid fa-pen me-2"></i>Edit
+    </a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-weight-scale text-orange me-2"></i>Recorded Values
+            </div>
+            <div class="card-body">
+                {% if record.recorded_values %}
+                <div class="row g-3">
+                    {% for label, value, unit in record.recorded_values %}
+                    <div class="col-6 col-md-4">
+                        <div class="border rounded p-3 text-center">
+                            <div class="fw-bold" style="font-size:18px;">{{ '%.1f' % value }} <span class="text-muted small">{{ unit }}</span></div>
+                            <div class="text-muted small">{{ label }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if record.bmi is not none %}
+                    <div class="col-6 col-md-4">
+                        <div class="border rounded p-3 text-center bg-light">
+                            <div class="fw-bold" style="font-size:18px;">{{ record.bmi }}</div>
+                            <div class="text-muted small">BMI (calculated)</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No values recorded.</p>
+                {% endif %}
+
+                {% if record.notes %}
+                <hr>
+                <div class="text-muted small mb-1">Notes</div>
+                <p class="mb-0" style="white-space: pre-line;">{{ record.notes }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-info text-orange me-2"></i>Record Info
+            </div>
+            <div class="card-body" style="font-size:13.5px;">
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Member</span>
+                    <span>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('members.view_member', member_id=record.member_id) }}"
+                           class="text-decoration-none">{{ record.member.full_name }}</a>
+                        {% else %}
+                        {{ record.member.full_name }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Measured on</span>
+                    <span>{{ record.measured_on.strftime('%d %b %Y') }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Recorded by</span>
+                    <span>{{ record.created_by.full_name if record.created_by else '—' }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 {% if record.updated_by %}border-bottom{% endif %}">
+                    <span class="text-muted">Recorded at</span>
+                    <span>{{ record.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                </div>
+                {% if record.updated_by %}
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">Last updated by</span>
+                    <span>{{ record.updated_by.full_name }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <!-- FR-MEAS-03: Edit audit log -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-clock-rotate-left text-orange me-2"></i>Edit History
+            </div>
+            {% if edit_logs %}
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" style="font-size:13px;">
+                    {% for log in edit_logs %}
+                    <li class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="fw-semibold text-capitalize">{{ log.field_name.replace('_', ' ') }}</span>
+                            <span class="text-muted small">{{ log.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                        </div>
+                        <div class="text-muted small">
+                            <span class="text-danger font-monospace">{{ log.old_value or '—' }}</span>
+                            <i class="fa-solid fa-arrow-right mx-1"></i>
+                            <span class="text-success font-monospace">{{ log.new_value or '—' }}</span>
+                        </div>
+                        <div class="text-muted small mt-1">by {{ log.edited_by.full_name }}</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">
+                <i class="fa-solid fa-check-circle me-1"></i>No edits made — original record.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -66,6 +66,15 @@
             <div class="stat-label">Today's Check-ins</div>
         </div>
     </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-warning bg-opacity-10 mb-3">
+                <i class="fa-solid fa-sack-dollar text-warning"></i>
+            </div>
+            <div class="stat-value {% if stats.pending_payroll %}text-warning{% endif %}">{{ stats.pending_payroll }}</div>
+            <div class="stat-label">Pending Payroll</div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">
@@ -158,6 +167,9 @@
                 </a>
                 <a href="{{ url_for('packages.list_packages') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-box-open me-2"></i>Manage Packages
+                </a>
+                <a href="{{ url_for('payroll.create_payroll') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-sack-dollar me-2"></i>Record Payroll
                 </a>
             </div>
         </div>

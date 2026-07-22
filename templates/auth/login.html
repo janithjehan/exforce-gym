@@ -53,12 +53,10 @@
                         <div class="invalid-feedback">{{ error }}</div>
                         {% endfor %}
                     </div>
-                </div>
-
-                <div class="mb-4 d-flex align-items-center justify-content-between">
-                    <div class="form-check mb-0">
-                        {{ form.remember_me(class='form-check-input') }}
-                        {{ form.remember_me.label(class='form-check-label', style='font-size:13px;') }}
+                    <div class="text-end mt-2">
+                        <a href="{{ url_for('auth.forgot_password') }}" class="fw-semibold text-orange" style="font-size:12.5px;">
+                            Forgot password?
+                        </a>
                     </div>
                 </div>
 

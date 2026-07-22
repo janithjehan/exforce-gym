@@ -79,6 +79,13 @@
                 Payments
             </a>
         </li>
+        <li class="nav-item">
+            <a href="{{ url_for('payroll.list_payroll') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('payroll.') %}active{% endif %}">
+                <i class="fa-solid fa-sack-dollar"></i>
+                Payroll
+            </a>
+        </li>
 
         <li><div class="sidebar-section-label">Operations</div></li>
 
@@ -110,6 +117,13 @@
                 Workouts
             </a>
         </li>
+        <li class="nav-item">
+            <a href="{{ url_for('measurements.list_measurements') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('measurements.') %}active{% endif %}">
+                <i class="fa-solid fa-weight-scale"></i>
+                Measurements
+            </a>
+        </li>
 
         <li><div class="sidebar-section-label">Gym Info</div></li>
 
@@ -121,10 +135,10 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('supplements.list_supplements') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('supplements.') %}active{% endif %}">
                 <i class="fa-solid fa-pills"></i>
                 Supplements
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">
@@ -135,10 +149,10 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('feedback.list_feedback') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('feedback.') %}active{% endif %}">
                 <i class="fa-solid fa-comments"></i>
                 Feedback
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
 
@@ -174,6 +188,20 @@
                 Payments
             </a>
         </li>
+        <li class="nav-item">
+            <a href="{{ url_for('payroll.list_payroll') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('payroll.') and request.endpoint != 'payroll.my_payroll' %}active{% endif %}">
+                <i class="fa-solid fa-sack-dollar"></i>
+                Payroll
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('payroll.my_payroll') }}"
+               class="nav-link {% if request.endpoint == 'payroll.my_payroll' %}active{% endif %}">
+                <i class="fa-solid fa-wallet"></i>
+                My Payroll
+            </a>
+        </li>
 
         <li><div class="sidebar-section-label">Staff & Activity</div></li>
 
@@ -206,6 +234,13 @@
             </a>
         </li>
         <li class="nav-item">
+            <a href="{{ url_for('supplements.list_supplements') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('supplements.') %}active{% endif %}">
+                <i class="fa-solid fa-pills"></i>
+                Supplements
+            </a>
+        </li>
+        <li class="nav-item">
             <a href="{{ url_for('notifications.list_notifications') }}"
                class="nav-link {% if request.endpoint and request.endpoint.startswith('notifications.') %}active{% endif %}">
                 <i class="fa-solid fa-bell"></i>
@@ -222,6 +257,13 @@
                class="nav-link {% if request.endpoint and request.endpoint.startswith('trainers.') %}active{% endif %}">
                 <i class="fa-solid fa-id-card"></i>
                 My Profile
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('payroll.my_payroll') }}"
+               class="nav-link {% if request.endpoint == 'payroll.my_payroll' %}active{% endif %}">
+                <i class="fa-solid fa-wallet"></i>
+                My Payroll
             </a>
         </li>
         <li class="nav-item">
@@ -295,18 +337,27 @@
                 {% endif %}
             </a>
         </li>
+        {% if config.SUPPLEMENTS_MEMBER_VIEW %}
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('supplements.catalog') }}"
+               class="nav-link {% if request.endpoint == 'supplements.catalog' %}active{% endif %}">
+                <i class="fa-solid fa-pills"></i>
+                Supplements
+            </a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+            <a href="{{ url_for('measurements.my_measurements') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('measurements.') %}active{% endif %}">
                 <i class="fa-solid fa-weight-scale"></i>
                 Measurements
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link disabled text-muted">
+            <a href="{{ url_for('feedback.my_feedback') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('feedback.') %}active{% endif %}">
                 <i class="fa-solid fa-star"></i>
                 Feedback
-                <span class="nav-badge badge bg-secondary ms-auto">Soon</span>
             </a>
         </li>
         {% endif %}

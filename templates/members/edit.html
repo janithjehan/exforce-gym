@@ -45,6 +45,11 @@
                             {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
                         <div class="col-6">
+                            {{ form.nic_no.label(class='form-label') }}
+                            {{ form.nic_no(class='form-control' + (' is-invalid' if form.nic_no.errors else '')) }}
+                            {% for e in form.nic_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
                             {{ form.contact_no.label(class='form-label') }}
                             {{ form.contact_no(class='form-control' + (' is-invalid' if form.contact_no.errors else '')) }}
                             {% for e in form.contact_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}

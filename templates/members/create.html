@@ -53,16 +53,18 @@
                             {{ form.phone(class='form-control' + (' is-invalid' if form.phone.errors else '')) }}
                             {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
-                        <div class="col-6">
-                            {{ form.password.label(class='form-label') }}
-                            {{ form.password(class='form-control' + (' is-invalid' if form.password.errors else '')) }}
-                            {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                            <div class="form-text" style="font-size:11.5px;">Min. 8 chars, letter + number.</div>
+                        <div class="col-12">
+                            {{ form.nic_no.label(class='form-label') }}
+                            {{ form.nic_no(class='form-control' + (' is-invalid' if form.nic_no.errors else ''), onchange='OnchangeNic(this.value)') }}
+                            {% for e in form.nic_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            <div id="nicClientError" class="text-danger d-none" style="font-size:12.5px;"></div>
                         </div>
-                        <div class="col-6">
-                            {{ form.confirm_password.label(class='form-label') }}
-                            {{ form.confirm_password(class='form-control' + (' is-invalid' if form.confirm_password.errors else '')) }}
-                            {% for e in form.confirm_password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        <div class="col-12">
+                            <div class="alert alert-info py-2 mb-0" style="font-size:12.5px;">
+                                <i class="fa-solid fa-key me-1"></i>
+                                The member's initial password is their <strong>NIC number</strong>.
+                                They can change it after signing in.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -89,13 +91,22 @@
                         </div>
                         <div class="col-6">
                             {{ form.date_of_birth.label(class='form-label') }}
-                            {{ form.date_of_birth(class='form-control' + (' is-invalid' if form.date_of_birth.errors else ''), type='date') }}
+                            {{ form.date_of_birth(class='form-control' + (' is-invalid' if form.date_of_birth.errors else ''), type='date', readonly=True, tabindex='-1') }}
                             {% for e in form.date_of_birth.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
                         <div class="col-6">
                             {{ form.gender.label(class='form-label') }}
-                            {{ form.gender(class='form-select' + (' is-invalid' if form.gender.errors else '')) }}
+                            {{ form.gender(class='form-select' + (' is-invalid' if form.gender.errors else ''), disabled=True, tabindex='-1') }}
                             {% for e in form.gender.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="age">Age</label>
+                            <input type="text" id="age" class="form-control" readonly tabindex="-1" placeholder="Auto-filled from NIC">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text mt-0" style="font-size:11.5px;">
+                                Date of birth, age, and gender are derived automatically from the NIC number.
+                            </div>
                         </div>
                         <div class="col-12">
                             {{ form.address.label(class='form-label') }}
@@ -130,4 +141,82 @@
         <a href="{{ url_for('members.list_members') }}" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// NIC day-of-year always counts February as 29 days (NIC convention)
+const NIC_MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function showNicError(message) {
+    const errorDiv = document.getElementById('nicClientError');
+    errorDiv.innerText = message;
+    errorDiv.classList.remove('d-none');
+    document.getElementById('nic_no').classList.add('is-invalid');
+}
+
+function clearNicError() {
+    const errorDiv = document.getElementById('nicClientError');
+    errorDiv.innerText = '';
+    errorDiv.classList.add('d-none');
+    document.getElementById('nic_no').classList.remove('is-invalid');
+}
+
+function OnchangeNic(nic_no) {
+    clearNicError();
+    const nic = (nic_no || '').replace(/\s/g, '');
+    if (!nic) {
+        showNicError('NIC cannot be empty.');
+        return;
+    }
+    let year, days;
+    if (nic.length === 10) {
+        if (/^\d{9}[VXvx]$/.test(nic)) {
+            year = parseInt(nic.substring(0, 2), 10) + 1900;
+            days = parseInt(nic.substring(2, 5), 10);
+        } else {
+            showNicError("Old NIC format must be 9 digits followed by 'V' or 'X'.");
+            return;
+        }
+    } else if (nic.length === 12) {
+        if (/^\d{12}$/.test(nic)) {
+            year = parseInt(nic.substring(0, 4), 10);
+            days = parseInt(nic.substring(4, 7), 10);
+        } else {
+            showNicError('New NIC format must contain exactly 12 digits.');
+            return;
+        }
+    } else {
+        showNicError('NIC must be either 10 characters (old format) or 12 digits (new format).');
+        return;
+    }
+    GetValues(year, days);
+}
+
+function GetValues(year, days) {
+    const gender = days >= 500 ? 'female' : 'male';
+    if (days >= 500) days -= 500;
+    if (days < 1 || days > 366) {
+        showNicError('Invalid number of days in NIC.');
+        return;
+    }
+    let month = 0;
+    let actual_days = days;
+    for (let i = 0; i < NIC_MONTH_DAYS.length; i++) {
+        month += 1;
+        if (actual_days <= NIC_MONTH_DAYS[i]) break;
+        actual_days -= NIC_MONTH_DAYS[i];
+    }
+    document.getElementById('date_of_birth').value =
+        year + '-' + String(month).padStart(2, '0') + '-' + String(actual_days).padStart(2, '0');
+    document.getElementById('age').value = new Date().getFullYear() - year;
+    document.getElementById('gender').value = gender;
+}
+
+// Re-derive on page load (e.g. after a server-side validation error re-render)
+document.addEventListener('DOMContentLoaded', function () {
+    const nic = document.getElementById('nic_no');
+    if (nic.value) OnchangeNic(nic.value);
+});
+</script>
 {% endblock %}

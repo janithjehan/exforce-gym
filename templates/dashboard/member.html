@@ -101,6 +101,39 @@
         </div>
     </div>
     <div class="col-lg-4">
+        <!-- Latest measurement -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="fa-solid fa-weight-scale text-orange me-2"></i>Latest Measurement</span>
+                <a href="{{ url_for('measurements.my_measurements') }}" class="btn btn-sm btn-outline-secondary">
+                    View All <i class="fa-solid fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+            {% if latest_measurement %}
+            <div class="card-body">
+                <div class="text-muted small mb-2">{{ latest_measurement.measured_on.strftime('%d %B %Y') }}</div>
+                <div class="row g-2">
+                    {% for label, value, unit in latest_measurement.recorded_values[:4] %}
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="fw-bold">{{ '%.1f' % value }} <span class="text-muted small">{{ unit }}</span></div>
+                            <div class="text-muted" style="font-size:11.5px;">{{ label }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state py-4">
+                <i class="fa-solid fa-weight-scale d-block" style="font-size:28px;"></i>
+                <p class="mt-2 mb-2" style="font-size:13px;">No measurements recorded yet.</p>
+                <a href="{{ url_for('measurements.create_measurement') }}" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus me-1"></i>Add Measurement
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <i class="fa-solid fa-circle-user text-orange me-2"></i>My Profile

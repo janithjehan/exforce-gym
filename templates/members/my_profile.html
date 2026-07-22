@@ -59,8 +59,11 @@
                     {% endif %}
                 </ul>
             </div>
-            <div class="card-body border-top pt-3">
-                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm w-100">
+            <div class="card-body border-top pt-3 d-grid gap-2">
+                <a href="{{ url_for('members.my_profile_edit') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-user-pen me-2"></i>Edit Profile
+                </a>
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="fa-solid fa-key me-2"></i>Change Password
                 </a>
             </div>

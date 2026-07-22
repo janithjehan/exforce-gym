@@ -54,6 +54,10 @@ def create_app(config_name=None):
     from app.blueprints.workouts import workouts_bp
     from app.blueprints.schedules import schedules_bp
     from app.blueprints.equipment import equipment_bp
+    from app.blueprints.supplements import supplements_bp
+    from app.blueprints.measurements import measurements_bp
+    from app.blueprints.feedback import feedback_bp
+    from app.blueprints.payroll import payroll_bp
     from app.blueprints.dashboard import dashboard_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -68,6 +72,10 @@ def create_app(config_name=None):
     app.register_blueprint(workouts_bp, url_prefix='/workouts')
     app.register_blueprint(schedules_bp, url_prefix='/schedules')
     app.register_blueprint(equipment_bp, url_prefix='/equipment')
+    app.register_blueprint(supplements_bp, url_prefix='/supplements')
+    app.register_blueprint(measurements_bp, url_prefix='/measurements')
+    app.register_blueprint(feedback_bp, url_prefix='/feedback')
+    app.register_blueprint(payroll_bp, url_prefix='/payroll')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
     # Unread in-app notification badge for members (sidebar)
@@ -92,5 +100,14 @@ def create_app(config_name=None):
     # Error handlers
     from app.blueprints.errors import register_error_handlers
     register_error_handlers(app)
+
+    # In-process daily scheduler (membership expiry + expiry reminders).
+    # Guarded so Werkzeug's debug reloader (which forks a watcher + child
+    # process) only starts it once, in the child that actually serves requests.
+    if not app.config.get('TESTING') and (
+        os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug
+    ):
+        from app.scheduler import init_scheduler
+        init_scheduler(app)
 
     return app

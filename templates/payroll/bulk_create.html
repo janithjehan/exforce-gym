@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('payroll.list_payroll') }}">Payroll</a></li>
+        <li class="breadcrumb-item active">Bulk Create</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Bulk Create Payroll</h2>
+        <p>Select any number of Managers/Trainers and enter each one's amount for the same pay period.</p>
+    </div>
+    <a href="{{ url_for('payroll.create_payroll') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fa-solid fa-user me-1"></i>Single Record Instead
+    </a>
+</div>
+
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-sm-4">
+                    {{ form.pay_period.label(class='form-label fw-semibold') }}
+                    {{ form.pay_period(class='form-control' + (' is-invalid' if form.pay_period.errors else '')) }}
+                    {% for e in form.pay_period.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    <div class="form-text">Applies to every row below — only the month matters.</div>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label fw-semibold">Fill Gross Amount for Checked Rows</label>
+                    <div class="input-group">
+                        <span class="input-group-text">LKR</span>
+                        <input type="text" id="fillAmount" class="form-control" placeholder="0.00">
+                        <button type="button" id="fillAmountBtn" class="btn btn-outline-secondary">Apply</button>
+                    </div>
+                    <div class="form-text">Convenience only — still editable per row after applying.</div>
+                </div>
+                <div class="col-sm-4 d-flex gap-2">
+                    <button type="button" id="selectAllBtn" class="btn btn-sm btn-outline-secondary">Select All</button>
+                    <button type="button" id="clearAllBtn" class="btn btn-sm btn-outline-secondary">Clear All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            {% if staff_list %}
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"></th>
+                            <th>Staff Member</th>
+                            <th>Role</th>
+                            <th style="width:160px;">Gross (LKR)</th>
+                            <th style="width:160px;">Bonus (LKR)</th>
+                            <th style="width:160px;">Deductions (LKR)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for staff in staff_list %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input staff-check" name="selected_{{ staff.id }}" value="1">
+                            </td>
+                            <td class="fw-semibold">{{ staff.full_name }}</td>
+                            <td>
+                                <span class="badge
+                                    {% if staff.role.value == 'admin' %}role-badge-admin
+                                    {% elif staff.role.value == 'trainer' %}role-badge-trainer
+                                    {% else %}role-badge-member{% endif %}">
+                                    {{ staff.role.label }}
+                                </span>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm gross-input" name="gross_{{ staff.id }}" placeholder="0.00">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm" name="bonus_{{ staff.id }}" placeholder="0.00">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm" name="deductions_{{ staff.id }}" placeholder="0.00">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fa-solid fa-users fa-2x mb-3 d-block"></i>
+                No other staff members available to pay.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if staff_list %}
+    <div class="d-flex gap-2 mt-4">
+        {{ form.submit(class='btn btn-primary') }}
+        <a href="{{ url_for('payroll.list_payroll') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+    {% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('selectAllBtn').addEventListener('click', function () {
+    document.querySelectorAll('.staff-check').forEach(cb => cb.checked = true);
+});
+document.getElementById('clearAllBtn').addEventListener('click', function () {
+    document.querySelectorAll('.staff-check').forEach(cb => cb.checked = false);
+});
+document.getElementById('fillAmountBtn').addEventListener('click', function () {
+    const amount = document.getElementById('fillAmount').value.trim();
+    if (!amount) return;
+    document.querySelectorAll('tr').forEach(row => {
+        const check = row.querySelector('.staff-check');
+        const gross = row.querySelector('.gross-input');
+        if (check && gross && check.checked) {
+            gross.value = amount;
+        }
+    });
+});
+</script>
+{% endblock %}

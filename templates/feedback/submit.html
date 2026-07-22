@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('feedback.my_feedback') }}">My Feedback</a></li>
+        <li class="breadcrumb-item active">Submit Feedback</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Submit Feedback</h2>
+        <p>Tell us how we're doing — your feedback helps us improve.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.category.label(class='form-label fw-semibold') }}
+                        {{ form.category(class='form-select' + (' is-invalid' if form.category.errors else '')) }}
+                        {% for e in form.category.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.rating.label(class='form-label fw-semibold d-block') }}
+                        <div class="star-rating d-flex gap-1" style="font-size:26px; cursor:pointer;">
+                            {% for sub in form.rating %}
+                            <span class="d-none">{{ sub }}</span>
+                            {% endfor %}
+                            {% for i in range(1, 6) %}
+                            <i class="fa-regular fa-star text-warning star-pick" data-value="{{ i }}"></i>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text" id="ratingHint">Tap a star to rate (1 = poor, 5 = excellent).</div>
+                        {% if form.rating.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for e in form.rating.errors %}{{ e }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.comments.label(class='form-label fw-semibold') }}
+                        {{ form.comments(class='form-control' + (' is-invalid' if form.comments.errors else '')) }}
+                        {% for e in form.comments.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('feedback.my_feedback') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Star picker — fills the hidden RadioField inputs
+    const stars = document.querySelectorAll('.star-pick');
+    const radios = document.querySelectorAll('input[name="rating"]');
+    const hint = document.getElementById('ratingHint');
+    const labels = {1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent'};
+
+    function paint(value) {
+        stars.forEach(s => {
+            const on = parseInt(s.dataset.value) <= value;
+            s.classList.toggle('fa-solid', on);
+            s.classList.toggle('fa-regular', !on);
+        });
+    }
+
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            const value = parseInt(star.dataset.value);
+            radios.forEach(r => { r.checked = (r.value === String(value)); });
+            paint(value);
+            hint.textContent = value + ' / 5 — ' + labels[value];
+        });
+        star.addEventListener('mouseenter', () => paint(parseInt(star.dataset.value)));
+        star.addEventListener('mouseleave', () => {
+            const checked = document.querySelector('input[name="rating"]:checked');
+            paint(checked ? parseInt(checked.value) : 0);
+        });
+    });
+
+    // Restore state after a validation error
+    const pre = document.querySelector('input[name="rating"]:checked');
+    if (pre) { paint(parseInt(pre.value)); hint.textContent = pre.value + ' / 5 — ' + labels[pre.value]; }
+</script>
+{% endblock %}

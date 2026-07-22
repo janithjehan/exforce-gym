@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('schedules.list_schedules') }}">Schedules</a></li>
+        <li class="breadcrumb-item active">New Schedule</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>New Schedule</h2>
+        <p>Plan a workout routine for a member.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-xl-10">
+        {% include 'schedules/_form.html' %}
+    </div>
+</div>
+{% endblock %}

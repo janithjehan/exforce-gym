@@ -9,6 +9,7 @@ from app.models.attendance import Attendance
 from app.models.member import Member
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_manager_or_trainer_required
+from app.utils.search import parse_search_terms, multi_term_filter
 
 ATTENDANCE_PER_PAGE = 20
 
@@ -26,14 +27,11 @@ def list_attendance():
         .join(User, Member.user_id == User.id)
     )
 
-    if search:
-        like = f'%{search}%'
-        query = query.filter(
-            db.or_(
-                User.first_name.ilike(like),
-                User.last_name.ilike(like),
-            )
-        )
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.first_name, User.last_name,
+        ]))
 
     if date_filter:
         try:

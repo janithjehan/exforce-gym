@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Feedback</h2>
+        <p>Member feedback and responses.</p>
+    </div>
+    <a href="{{ url_for('feedback.export_feedback', status=status_filter, category=category_filter, search=search) }}"
+       class="btn btn-outline-primary">
+        <i class="fa-solid fa-file-csv me-2"></i>Export CSV
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Feedback</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value {% if stats.new %}text-primary{% endif %}">{{ stats.new }}</div>
+            <div class="stat-label">Awaiting Review</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">
+                {% if stats.avg_rating is not none %}
+                {{ stats.avg_rating }} <i class="fa-solid fa-star text-warning" style="font-size:16px;"></i>
+                {% else %}—{% endif %}
+            </div>
+            <div class="stat-label">Average Rating</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.this_month }}</div>
+            <div class="stat-label">This Month</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            {% for s in statuses %}
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == s.value %}active{% endif %}"
+                   href="{{ url_for('feedback.list_feedback', status=s.value, category=category_filter, search=search) }}">{{ s.label }}</a>
+            </li>
+            {% endfor %}
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('feedback.list_feedback', status='all', category=category_filter, search=search) }}">All</a>
+            </li>
+        </ul>
+
+        <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="search" name="search" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search member... (comma-separated)" style="width:210px;">
+            <select name="category" class="form-select form-select-sm" style="width:140px;">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                <option value="{{ c.value }}" {% if category_filter == c.value %}selected{% endif %}>{{ c.label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-filter"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if records.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Rating</th>
+                        <th>Comments</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('members.view_member', member_id=r.member_id) }}"
+                               class="fw-semibold text-decoration-none">{{ r.member.full_name }}</a>
+                        </td>
+                        <td class="text-muted small">{{ r.created_at.strftime('%d %b %Y') }}</td>
+                        <td><span class="badge bg-secondary bg-opacity-15 text-secondary">{{ r.category_label }}</span></td>
+                        <td class="small text-nowrap">
+                            {% for i in range(1, 6) %}
+                            <i class="fa-{% if i <= r.rating %}solid text-warning{% else %}regular text-muted{% endif %} fa-star"></i>
+                            {% endfor %}
+                        </td>
+                        <td class="text-muted small" style="max-width:280px;">
+                            {{ r.comments | truncate(70) }}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ r.status.badge_class }} bg-opacity-15 text-{{ r.status.badge_class }}">
+                                {{ r.status.label }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('feedback.view_feedback', feedback_id=r.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if records.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('feedback.list_feedback', page=records.prev_num, status=status_filter, category=category_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == records.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('feedback.list_feedback', page=p, status=status_filter, category=category_filter, search=search) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not records.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('feedback.list_feedback', page=records.next_num, status=status_filter, category=category_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-comments fa-2x mb-3 d-block"></i>
+            No feedback in this view.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

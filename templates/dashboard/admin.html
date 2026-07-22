@@ -84,6 +84,24 @@
             <div class="stat-label">Today's Check-ins</div>
         </div>
     </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-info bg-opacity-10 mb-3">
+                <i class="fa-solid fa-comments text-info"></i>
+            </div>
+            <div class="stat-value {% if stats.new_feedback %}text-info{% endif %}">{{ stats.new_feedback }}</div>
+            <div class="stat-label">New Feedback</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <div class="card stat-card p-4">
+            <div class="stat-icon bg-warning bg-opacity-10 mb-3">
+                <i class="fa-solid fa-sack-dollar text-warning"></i>
+            </div>
+            <div class="stat-value {% if stats.pending_payroll %}text-warning{% endif %}">{{ stats.pending_payroll }}</div>
+            <div class="stat-label">Pending Payroll</div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">
@@ -149,7 +167,7 @@
         </div>
     </div>
 
-    <!-- Quick Actions + Module Status -->
+    <!-- Quick Actions -->
     <div class="col-lg-5">
         <div class="card mb-4">
             <div class="card-header">
@@ -180,60 +198,16 @@
                 <a href="{{ url_for('notifications.create_notification') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-bell me-2"></i>Send Notification
                 </a>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <i class="fa-solid fa-circle-info text-orange me-2"></i>Module Status
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush" style="font-size:13px;">
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-users-gear me-2 text-orange"></i>User Management</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-id-card me-2 text-orange"></i>Members</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-box-open me-2 text-orange"></i>Packages</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-id-badge me-2 text-orange"></i>Memberships</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-credit-card me-2 text-orange"></i>Payments</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-person-walking me-2 text-orange"></i>Attendance</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-person-running me-2 text-orange"></i>Trainers</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-bell me-2 text-orange"></i>Notifications</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-dumbbell me-2 text-orange"></i>Workouts</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-calendar-days me-2 text-orange"></i>Schedules</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-4">
-                        <span><i class="fa-solid fa-wrench me-2 text-orange"></i>Equipment</span>
-                        <span class="badge bg-success">Live</span>
-                    </li>
-                </ul>
+                <a href="{{ url_for('payroll.create_payroll') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-sack-dollar me-2"></i>Record Payroll
+                </a>
+                <form method="POST" action="{{ url_for('dashboard.run_expiry_job') }}"
+                      onsubmit="return confirm('Run the membership expiry + reminder job now?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-secondary w-100">
+                        <i class="fa-solid fa-clock-rotate-left me-2"></i>Run Expiry Job Now
+                    </button>
+                </form>
             </div>
         </div>
     </div>

@@ -132,6 +132,9 @@
                         <i class="fa-solid fa-id-card me-2"></i>View My Profile
                     </a>
                     {% endif %}
+                    <a href="{{ url_for('payroll.my_payroll') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa-solid fa-wallet me-2"></i>My Payroll
+                    </a>
                     <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="fa-solid fa-key me-2"></i>Change Password
                     </a>

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>My Schedules</h2>
+        <p>Workout plans your trainer has assigned to you.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if schedules.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Plan</th>
+                        <th>Trainer</th>
+                        <th>Date Range</th>
+                        <th>Workouts</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in schedules.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('schedules.view_schedule', schedule_id=s.id) }}" class="fw-semibold text-decoration-none">
+                                {{ s.title }}
+                            </a>
+                            {% if s.is_current %}<span class="badge bg-success ms-1">Current</span>{% endif %}
+                        </td>
+                        <td class="text-muted">{{ s.trainer.full_name }}</td>
+                        <td class="text-muted small">{{ s.date_range_label }}</td>
+                        <td class="text-muted small">{{ s.items|length }}</td>
+                        <td>
+                            <span class="badge bg-{{ s.status.badge_class }} bg-opacity-15 text-{{ s.status.badge_class }}">
+                                {{ s.status.label }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('schedules.download_pdf', schedule_id=s.id) }}"
+                               class="btn btn-sm btn-outline-secondary" title="Download PDF">
+                                <i class="fa-solid fa-file-pdf"></i>
+                            </a>
+                            <a href="{{ url_for('schedules.view_schedule', schedule_id=s.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if schedules.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not schedules.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('schedules.my_schedules', page=schedules.prev_num) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in schedules.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == schedules.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('schedules.my_schedules', page=p) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not schedules.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('schedules.my_schedules', page=schedules.next_num) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-calendar-days fa-2x mb-3 d-block"></i>
+            No schedules assigned yet. Your trainer will create one for you.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

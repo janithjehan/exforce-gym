@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Supplement Catalog</h2>
+        <p>Supplements available at the gym. Ask at the front desk to purchase.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <span class="text-muted" style="font-size:13.5px;">{{ supplements | length }} item{{ 's' if supplements | length != 1 }}</span>
+        <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
+            <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search name or brand... (comma-separated)" style="width:220px;">
+            <select name="type" class="form-select form-select-sm" style="width:130px;">
+                <option value="">All Types</option>
+                {% for t in types %}
+                <option value="{{ t.value }}" {% if type_filter == t.value %}selected{% endif %}>{{ t.label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-filter"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if supplements %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Supplement</th>
+                        <th>Type</th>
+                        <th>Brand</th>
+                        <th>Price</th>
+                        <th>Availability</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in supplements %}
+                    <tr>
+                        <td>
+                            <span class="fw-semibold">{{ s.name }}</span>
+                            {% if s.description %}
+                            <div class="text-muted small text-truncate" style="max-width:320px;">{{ s.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td>{{ s.supplement_type.label }}</td>
+                        <td class="text-muted">{{ s.brand or '—' }}</td>
+                        <td>{{ s.price_label }}</td>
+                        <td>
+                            <span class="badge bg-{{ s.status_badge_class }}">{{ s.status_label }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-pills fa-2x mb-3 d-block"></i>
+            No supplements found.
+            {% if search or type_filter %}
+            <a href="{{ url_for('supplements.catalog') }}">Clear filters</a>.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -84,6 +84,12 @@
                         <span>{{ user.phone }}</span>
                     </li>
                     {% endif %}
+                    {% if user.nic_no %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-id-card fa-fw me-2"></i>NIC</span>
+                        <span>{{ user.nic_no }}</span>
+                    </li>
+                    {% endif %}
                     <li class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted"><i class="fa-solid fa-calendar fa-fw me-2"></i>Joined</span>
                         <span>{{ user.created_at.strftime('%d %b %Y') }}</span>
