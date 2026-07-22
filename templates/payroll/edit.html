@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('payroll.list_payroll') }}">Payroll</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('payroll.view_payroll', payroll_id=record.id) }}">#{{ record.id }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Edit Payroll #{{ record.id }}</h2>
+        <p>{{ record.user.full_name }} &middot; {{ record.period_label }}</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-sack-dollar text-orange me-2"></i>Payroll Details
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.pay_period.label(class='form-label fw-semibold') }}
+                        {{ form.pay_period(class='form-control' + (' is-invalid' if form.pay_period.errors else '')) }}
+                        {% for e in form.pay_period.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-4">
+                            {{ form.gross_amount.label(class='form-label fw-semibold') }}
+                            <div class="input-group">
+                                <span class="input-group-text">LKR</span>
+                                {{ form.gross_amount(class='form-control' + (' is-invalid' if form.gross_amount.errors else '')) }}
+                                {% for e in form.gross_amount.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.bonus.label(class='form-label fw-semibold') }}
+                            <div class="input-group">
+                                <span class="input-group-text">LKR</span>
+                                {{ form.bonus(class='form-control' + (' is-invalid' if form.bonus.errors else '')) }}
+                                {% for e in form.bonus.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.deductions.label(class='form-label fw-semibold') }}
+                            <div class="input-group">
+                                <span class="input-group-text">LKR</span>
+                                {{ form.deductions(class='form-control' + (' is-invalid' if form.deductions.errors else '')) }}
+                                {% for e in form.deductions.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.notes.label(class='form-label fw-semibold') }}
+                        {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                        {% for e in form.notes.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('payroll.view_payroll', payroll_id=record.id) }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

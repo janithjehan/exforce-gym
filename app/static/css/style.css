@@ -341,6 +341,9 @@ a:hover { text-decoration: none; }
 
 .badge { font-size: 11.5px; padding: 4px 10px; border-radius: 50px; }
 
+/* Bootstrap only ships bg-opacity-10/25/50/75/100 — templates rely on 15 */
+.bg-opacity-15 { --bs-bg-opacity: 0.15; }
+
 /* ============================================================
    BUTTONS
    ============================================================ */
@@ -373,6 +376,12 @@ a:hover { text-decoration: none; }
 .form-control:focus, .form-select:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.15);
+}
+
+.form-control-sm, .form-select-sm,
+.input-group-sm .form-control, .input-group-sm .input-group-text {
+    padding: 4px 10px;
+    font-size: 12.5px;
 }
 
 .form-label { font-size: 13px; font-weight: 600; color: #3a4a5c; margin-bottom: 5px; }

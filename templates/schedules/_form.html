@@ -1,0 +1,150 @@
+{# Shared schedule form body — expects: form, workouts, existing_items (list of dicts) #}
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="card mb-4">
+        <div class="card-header"><i class="fa-solid fa-calendar-days text-orange me-2"></i>Plan Details</div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                    {{ form.member_id.label(class='form-label') }}
+                    {{ form.member_id(class='form-select' + (' is-invalid' if form.member_id.errors else '')) }}
+                    {% for e in form.member_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-sm-6">
+                    {{ form.trainer_id.label(class='form-label') }}
+                    {{ form.trainer_id(class='form-select' + (' is-invalid' if form.trainer_id.errors else ''), disabled=(form.trainer_id.choices|length == 1)) }}
+                    {% if form.trainer_id.choices|length == 1 %}
+                    <input type="hidden" name="trainer_id" value="{{ form.trainer_id.choices[0][0] }}">
+                    {% endif %}
+                    {% for e in form.trainer_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.title.label(class='form-label') }}
+                {{ form.title(class='form-control' + (' is-invalid' if form.title.errors else '')) }}
+                {% for e in form.title.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                    {{ form.start_date.label(class='form-label') }}
+                    {{ form.start_date(class='form-control' + (' is-invalid' if form.start_date.errors else ''), type='date') }}
+                    {% for e in form.start_date.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-sm-6">
+                    {{ form.end_date.label(class='form-label') }}
+                    {{ form.end_date(class='form-control' + (' is-invalid' if form.end_date.errors else ''), type='date') }}
+                    {% for e in form.end_date.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-0">
+                {{ form.notes.label(class='form-label') }}
+                {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                {% for e in form.notes.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fa-solid fa-dumbbell text-orange me-2"></i>Workout Items</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-btn">
+                <i class="fa-solid fa-plus me-1"></i>Add Row
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0" id="items-table">
+                    <thead>
+                        <tr style="font-size:12.5px;">
+                            <th style="min-width:180px;">Workout</th>
+                            <th style="min-width:110px;">Day</th>
+                            <th style="width:80px;">Sets</th>
+                            <th style="width:90px;">Reps</th>
+                            <th style="width:100px;">Rest (sec)</th>
+                            <th style="min-width:140px;">Notes</th>
+                            <th style="width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-body"></tbody>
+                </table>
+            </div>
+            <div class="text-muted small px-3 py-2">
+                Group rows by day (e.g. <em>Monday</em> or <em>Day 1</em>). Reps accepts a number or a range like <em>8-12</em>.
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        {{ form.submit(class='btn btn-primary') }}
+        <a href="{{ url_for('schedules.list_schedules') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+<template id="item-row-template">
+    <tr>
+        <td>
+            <select name="item_workout_id" class="form-select form-select-sm">
+                <option value="">— Select workout —</option>
+                {% for w in workouts %}
+                <option value="{{ w.id }}">{{ w.name }} ({{ w.muscle_group.label }})</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><input type="text" name="item_day_label" class="form-control form-control-sm" placeholder="Monday" maxlength="30"></td>
+        <td><input type="number" name="item_sets" class="form-control form-control-sm" min="1" max="20" placeholder="3"></td>
+        <td><input type="text" name="item_reps" class="form-control form-control-sm" placeholder="8-12" maxlength="20"></td>
+        <td><input type="number" name="item_rest_seconds" class="form-control form-control-sm" min="0" max="900" step="15" value="60"></td>
+        <td><input type="text" name="item_notes" class="form-control form-control-sm" placeholder="Optional" maxlength="200"></td>
+        <td class="text-center align-middle">
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-item-btn" title="Remove row">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<script>
+(function () {
+    const body = document.getElementById('items-body');
+    const template = document.getElementById('item-row-template');
+    const existing = {{ existing_items | tojson }};
+
+    function addRow(data) {
+        const row = template.content.cloneNode(true);
+        const tr = row.querySelector('tr');
+        if (data) {
+            tr.querySelector('[name=item_workout_id]').value = data.workout_id;
+            tr.querySelector('[name=item_day_label]').value = data.day_label;
+            tr.querySelector('[name=item_sets]').value = data.sets;
+            tr.querySelector('[name=item_reps]').value = data.reps;
+            tr.querySelector('[name=item_rest_seconds]').value = data.rest_seconds;
+            tr.querySelector('[name=item_notes]').value = data.notes || '';
+        }
+        tr.querySelector('.remove-item-btn').addEventListener('click', function () {
+            tr.remove();
+        });
+        body.appendChild(row);
+    }
+
+    document.getElementById('add-item-btn').addEventListener('click', function () {
+        // Carry the day label over from the last row for faster entry
+        const rows = body.querySelectorAll('tr');
+        const lastDay = rows.length
+            ? rows[rows.length - 1].querySelector('[name=item_day_label]').value
+            : '';
+        addRow(null);
+        const newRow = body.querySelectorAll('tr');
+        newRow[newRow.length - 1].querySelector('[name=item_day_label]').value = lastDay;
+    });
+
+    if (existing.length) {
+        existing.forEach(addRow);
+    } else {
+        addRow(null);
+    }
+})();
+</script>

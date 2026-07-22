@@ -2,4 +2,4 @@ from flask import Blueprint
 
 users_bp = Blueprint('users', __name__, template_folder='templates')
 
-from app.blueprints.users import routes  # noqa: E402, F401
+from app.blueprints.users import routes

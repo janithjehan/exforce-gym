@@ -609,11 +609,14 @@ Provide equipment visibility and tracking.
 
 
 
-* FR-EQP-01: Equipment must include: Name, Category, Quantity, Status (Available/Out of Service), Notes.
+* FR-EQP-01: Equipment must include: Name, Category, Image, Quantity, Status (Available/Out of Service), Notes.
 
 
 
 * FR-EQP-02: Trainers can view equipment; only Admin can create/update/delete (unless configured otherwise).
+
+
+* FR-EQP-03: Trainer uses equipment to create schedules
 
 
 

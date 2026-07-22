@@ -76,12 +76,36 @@
         </div>
         {% endif %}
 
-        <div class="card p-4 text-center" style="min-height:160px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-            <i class="fa-solid fa-calendar-days fa-2x text-orange mb-3 opacity-50"></i>
-            <h5 class="fw-semibold mb-1">Schedules & Workouts coming soon</h5>
-            <p class="text-muted mb-0" style="font-size:13.5px; max-width:360px;">
-                Member assignments, workout library, and schedule management will appear here.
-            </p>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card p-4 text-center h-100" style="display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                    <i class="fa-solid fa-dumbbell fa-2x text-orange mb-3"></i>
+                    <h5 class="fw-semibold mb-1">Workout Library</h5>
+                    <p class="text-muted mb-3" style="font-size:13.5px; max-width:360px;">
+                        Browse and maintain the exercises used when building member schedules.
+                    </p>
+                    <a href="{{ url_for('workouts.list_workouts') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fa-solid fa-dumbbell me-1"></i>Open Library
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-4 text-center h-100" style="display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                    <i class="fa-solid fa-calendar-days fa-2x text-orange mb-3"></i>
+                    <h5 class="fw-semibold mb-1">Schedules</h5>
+                    <p class="text-muted mb-3" style="font-size:13.5px; max-width:360px;">
+                        Plan and manage workout routines for your members.
+                    </p>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('schedules.create_schedule') }}" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-plus me-1"></i>New Schedule
+                        </a>
+                        <a href="{{ url_for('schedules.list_schedules') }}" class="btn btn-sm btn-outline-primary">
+                            View All
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -108,6 +132,9 @@
                         <i class="fa-solid fa-id-card me-2"></i>View My Profile
                     </a>
                     {% endif %}
+                    <a href="{{ url_for('payroll.my_payroll') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa-solid fa-wallet me-2"></i>My Payroll
+                    </a>
                     <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="fa-solid fa-key me-2"></i>Change Password
                     </a>

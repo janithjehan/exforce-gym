@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Workout Library</h2>
+        <p>Maintain the exercise library used when building member schedules.</p>
+    </div>
+    <a href="{{ url_for('workouts.create_workout') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>New Workout
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ total_active }}</div>
+            <div class="stat-label">Active Workouts</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ total_inactive }}</div>
+            <div class="stat-label">Inactive Workouts</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'active' %}active{% endif %}"
+                   href="{{ url_for('workouts.list_workouts', status='active') }}">Active</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'inactive' %}active{% endif %}"
+                   href="{{ url_for('workouts.list_workouts', status='inactive') }}">Inactive</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('workouts.list_workouts', status='all') }}">All</a>
+            </li>
+        </ul>
+
+        <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search workouts... (comma-separated)" style="width:200px;">
+            <select name="type" class="form-select form-select-sm" style="width:130px;">
+                <option value="">All Types</option>
+                {% for t in workout_types %}
+                <option value="{{ t.value }}" {% if type_filter == t.value %}selected{% endif %}>{{ t.label }}</option>
+                {% endfor %}
+            </select>
+            <select name="muscle" class="form-select form-select-sm" style="width:140px;">
+                <option value="">All Muscles</option>
+                {% for m in muscle_groups %}
+                <option value="{{ m.value }}" {% if muscle_filter == m.value %}selected{% endif %}>{{ m.label }}</option>
+                {% endfor %}
+            </select>
+            <select name="difficulty" class="form-select form-select-sm" style="width:140px;">
+                <option value="">All Levels</option>
+                {% for d in difficulty_levels %}
+                <option value="{{ d.value }}" {% if difficulty_filter == d.value %}selected{% endif %}>{{ d.label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-filter"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if workouts.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Workout</th>
+                        <th>Type</th>
+                        <th>Muscle Group</th>
+                        <th>Difficulty</th>
+                        <th>Equipment</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in workouts.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('workouts.view_workout', workout_id=w.id) }}" class="fw-semibold text-decoration-none">
+                                {{ w.name }}
+                            </a>
+                        </td>
+                        <td>{{ w.workout_type.label }}</td>
+                        <td>{{ w.muscle_group.label }}</td>
+                        <td>
+                            <span class="badge bg-{{ w.difficulty.badge_class }} bg-opacity-15 text-{{ w.difficulty.badge_class }}">
+                                {{ w.difficulty.label }}
+                            </span>
+                        </td>
+                        <td class="text-muted small text-truncate" style="max-width:180px;">{{ w.equipment_label }}</td>
+                        <td>
+                            <span class="badge bg-{{ w.status_badge_class }}">{{ w.status_label }}</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('workouts.view_workout', workout_id=w.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if workouts.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not workouts.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('workouts.list_workouts', page=workouts.prev_num, status=status_filter, q=search, type=type_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in workouts.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == workouts.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('workouts.list_workouts', page=p, status=status_filter, q=search, type=type_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not workouts.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('workouts.list_workouts', page=workouts.next_num, status=status_filter, q=search, type=type_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-dumbbell fa-2x mb-3 d-block"></i>
+            No workouts found.
+            {% if status_filter != 'all' or search or type_filter or muscle_filter or difficulty_filter %}
+            <a href="{{ url_for('workouts.list_workouts', status='all') }}">Clear filters</a> or
+            {% endif %}
+            <a href="{{ url_for('workouts.create_workout') }}">add one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

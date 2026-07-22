@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if has_list_access %}
+        <li class="breadcrumb-item"><a href="{{ url_for('payroll.list_payroll') }}">Payroll</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Payroll #{{ record.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Payroll #{{ record.id }}</h2>
+        <p>
+            <span class="badge bg-{{ record.status.badge_class }}">{{ record.status.label }}</span>
+            &nbsp;{{ record.user.full_name }} &middot; {{ record.period_label }}
+        </p>
+    </div>
+    {% if can_manage and record.status.value == 'pending' %}
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('payroll.edit_payroll', payroll_id=record.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-pen me-1"></i>Edit
+        </a>
+        <a href="{{ url_for('payroll.mark_paid', payroll_id=record.id) }}" class="btn btn-success btn-sm">
+            <i class="fa-solid fa-money-check-dollar me-1"></i>Mark as Paid
+        </a>
+        <form method="POST" action="{{ url_for('payroll.cancel_payroll', payroll_id=record.id) }}"
+              onsubmit="return confirm('Cancel this payroll record?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="fa-solid fa-ban me-1"></i>Cancel
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- Payroll details -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Payroll Details</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Staff Member</dt>
+                    <dd class="col-sm-8">
+                        {{ record.user.full_name }}
+                        <span class="text-muted small">({{ record.user.role.label }})</span>
+                    </dd>
+
+                    <dt class="col-sm-4">Pay Period</dt>
+                    <dd class="col-sm-8">{{ record.period_label }}</dd>
+
+                    <dt class="col-sm-4">Gross Amount</dt>
+                    <dd class="col-sm-8">LKR {{ '{:,.2f}'.format(record.gross_amount) }}</dd>
+
+                    <dt class="col-sm-4">Bonus</dt>
+                    <dd class="col-sm-8">LKR {{ '{:,.2f}'.format(record.bonus) }}</dd>
+
+                    <dt class="col-sm-4">Deductions</dt>
+                    <dd class="col-sm-8">LKR {{ '{:,.2f}'.format(record.deductions) }}</dd>
+
+                    <dt class="col-sm-4">Net Amount</dt>
+                    <dd class="col-sm-8 fw-bold text-success">LKR {{ '{:,.2f}'.format(record.net_amount) }}</dd>
+
+                    {% if record.status.value == 'paid' %}
+                    <dt class="col-sm-4">Payment Date</dt>
+                    <dd class="col-sm-8">{{ record.payment_date.strftime('%d %B %Y') }}</dd>
+
+                    <dt class="col-sm-4">Method</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-{{ record.method.badge_class }}">{{ record.method.label }}</span>
+                    </dd>
+                    {% endif %}
+
+                    {% if record.notes %}
+                    <dt class="col-sm-4">Notes</dt>
+                    <dd class="col-sm-8" style="white-space:pre-line;">{{ record.notes }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit info + edit log -->
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header"><strong>Record Info</strong></div>
+            <div class="card-body" style="font-size:13px;">
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Created by</span>
+                    <span>{{ record.created_by.full_name if record.created_by else '—' }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Created at</span>
+                    <span>{{ record.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                </div>
+                {% if record.updated_by %}
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">Last updated by</span>
+                    <span>{{ record.updated_by.full_name }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if has_list_access %}
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-clock-rotate-left text-orange me-2"></i>Edit History
+            </div>
+            {% if edit_logs %}
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" style="font-size:13px;">
+                    {% for log in edit_logs %}
+                    <li class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="fw-semibold text-capitalize">{{ log.field_name.replace('_', ' ') }}</span>
+                            <span class="text-muted small">{{ log.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                        </div>
+                        <div class="text-muted small">
+                            <span class="text-danger font-monospace">{{ log.old_value or '—' }}</span>
+                            <i class="fa-solid fa-arrow-right mx-1"></i>
+                            <span class="text-success font-monospace">{{ log.new_value or '—' }}</span>
+                        </div>
+                        <div class="text-muted small mt-1">by {{ log.edited_by.full_name }}</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">
+                <i class="fa-solid fa-check-circle me-1"></i>No edits made — original record.
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

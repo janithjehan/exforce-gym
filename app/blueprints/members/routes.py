@@ -3,11 +3,13 @@ from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 
 from app.blueprints.members import members_bp
-from app.blueprints.members.forms import MemberCreateForm, MemberEditForm
+from app.blueprints.members.forms import MemberCreateForm, MemberEditForm, MemberSelfEditForm
 from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.member import Member, Gender
 from app.utils.decorators import admin_required, admin_or_manager_required
+from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.validators import clean_nic, parse_nic
 
 MEMBERS_PER_PAGE = 15
 
@@ -25,16 +27,11 @@ def list_members():
         .join(User, Member.user_id == User.id)
     )
 
-    if search:
-        like = f'%{search}%'
-        query = query.filter(
-            db.or_(
-                User.first_name.ilike(like),
-                User.last_name.ilike(like),
-                User.email.ilike(like),
-                Member.contact_no.ilike(like),
-            )
-        )
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.first_name, User.last_name, User.email, Member.contact_no,
+        ]))
 
     if status_filter == 'archived':
         query = query.filter(Member.is_archived == True)
@@ -74,23 +71,26 @@ def create_member():
             email=form.email.data.strip().lower(),
             first_name=form.first_name.data.strip(),
             last_name=form.last_name.data.strip(),
-            phone=form.phone.data.strip() or None,
+            phone=form.phone.data.strip() or form.contact_no.data.strip(),
+            nic_no=clean_nic(form.nic_no.data),
             role=UserRole.MEMBER,
             is_active=True,
             created_by_id=current_user.id,
         )
-        user.set_password(form.password.data)
+        user.set_password(clean_nic(form.nic_no.data))
         db.session.add(user)
         db.session.flush()  # get user.id before committing
 
         # Create Member profile
+        # DOB/gender/age are derived from the NIC — the NIC is authoritative
+        nic_dob, nic_gender = parse_nic(form.nic_no.data)
         member = Member(
             user_id=user.id,
             contact_no=form.contact_no.data.strip(),
             address=form.address.data.strip() or None,
             join_date=form.join_date.data,
-            date_of_birth=form.date_of_birth.data or None,
-            gender=Gender(form.gender.data) if form.gender.data else None,
+            date_of_birth=nic_dob or form.date_of_birth.data,
+            gender=Gender(nic_gender) if nic_gender else None,
             emergency_contact_name=form.emergency_contact_name.data.strip() or None,
             emergency_contact_no=form.emergency_contact_no.data.strip() or None,
             notes=form.notes.data.strip() or None,
@@ -99,7 +99,7 @@ def create_member():
         db.session.add(member)
         db.session.commit()
 
-        flash(f'Member "{user.full_name}" created successfully.', 'success')
+        flash(f'Member "{user.full_name}" created successfully. Their initial password is their NIC number.', 'success')
         return redirect(url_for('members.view_member', member_id=member.id))
 
     return render_template('members/create.html', form=form, title='Add Member')
@@ -128,13 +128,14 @@ def edit_member(member_id):
         flash('Archived member profiles cannot be edited.', 'warning')
         return redirect(url_for('members.view_member', member_id=member_id))
 
-    form = MemberEditForm()
+    form = MemberEditForm(user_id=member.user_id)
 
     if request.method == 'GET':
         # Pre-populate form
         form.first_name.data = member.user.first_name
         form.last_name.data = member.user.last_name
         form.phone.data = member.user.phone
+        form.nic_no.data = member.user.nic_no
         form.contact_no.data = member.contact_no
         form.address.data = member.address
         form.join_date.data = member.join_date
@@ -148,7 +149,8 @@ def edit_member(member_id):
         # Update User name and phone
         member.user.first_name = form.first_name.data.strip()
         member.user.last_name = form.last_name.data.strip()
-        member.user.phone = form.phone.data.strip() or None
+        member.user.phone = form.phone.data.strip() or form.contact_no.data.strip()
+        member.user.nic_no = clean_nic(form.nic_no.data)
         member.user.updated_by_id = current_user.id
         member.user.updated_at = datetime.utcnow()
 
@@ -221,3 +223,53 @@ def my_profile():
         return redirect(url_for('dashboard.home'))
 
     return render_template('members/my_profile.html', member=member, title='My Profile')
+
+
+@members_bp.route('/my-profile/edit', methods=['GET', 'POST'])
+@login_required
+def my_profile_edit():
+    """Member self-service: mobile number, NIC, address, emergency contact.
+
+    Name, username, email stay admin-managed. Date of birth and gender are
+    not directly editable — they're re-derived from the NIC whenever it changes.
+    """
+    if current_user.role != UserRole.MEMBER:
+        return redirect(url_for('dashboard.home'))
+
+    member = current_user.member_profile
+    if not member:
+        flash('Your member profile has not been set up yet. Please contact the gym.', 'warning')
+        return redirect(url_for('dashboard.home'))
+
+    form = MemberSelfEditForm(user_id=current_user.id)
+    if request.method == 'GET':
+        form.phone.data = member.user.phone
+        form.nic_no.data = member.user.nic_no
+        form.address.data = member.address
+        form.emergency_contact_name.data = member.emergency_contact_name
+        form.emergency_contact_no.data = member.emergency_contact_no
+
+    if form.validate_on_submit():
+        mobile = form.phone.data.strip()
+        member.user.phone = mobile
+        member.contact_no = mobile  # keep account phone and profile contact in sync
+        member.user.nic_no = clean_nic(form.nic_no.data)
+        member.user.updated_by_id = current_user.id
+        member.user.updated_at = datetime.utcnow()
+
+        # NIC is authoritative for DOB/gender — re-derive whenever it changes
+        nic_dob, nic_gender = parse_nic(form.nic_no.data)
+        member.date_of_birth = nic_dob
+        member.gender = Gender(nic_gender) if nic_gender else None
+
+        member.address = form.address.data.strip() or None
+        member.emergency_contact_name = form.emergency_contact_name.data.strip() or None
+        member.emergency_contact_no = form.emergency_contact_no.data.strip() or None
+        member.updated_by_id = current_user.id
+        member.updated_at = datetime.utcnow()
+
+        db.session.commit()
+        flash('Your profile has been updated.', 'success')
+        return redirect(url_for('members.my_profile'))
+
+    return render_template('members/my_profile_edit.html', form=form, member=member, title='Edit My Profile')

@@ -3,11 +3,13 @@ from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import current_user, login_required
 
 from app.blueprints.trainers import trainers_bp
-from app.blueprints.trainers.forms import TrainerCreateForm, TrainerEditForm
+from app.blueprints.trainers.forms import TrainerCreateForm, TrainerEditForm, TrainerSelfEditForm
 from app.extensions import db
 from app.models.trainer import Trainer
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_required, admin_or_manager_required
+from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.validators import clean_nic
 
 TRAINERS_PER_PAGE = 15
 
@@ -24,16 +26,11 @@ def list_trainers():
         .join(User, Trainer.user_id == User.id)
     )
 
-    if search:
-        like = f'%{search}%'
-        query = query.filter(
-            db.or_(
-                User.first_name.ilike(like),
-                User.last_name.ilike(like),
-                User.email.ilike(like),
-                Trainer.specialization.ilike(like),
-            )
-        )
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.first_name, User.last_name, User.email, Trainer.specialization,
+        ]))
 
     if status_filter == 'archived':
         query = query.filter(Trainer.is_archived == True)  # noqa: E712
@@ -70,12 +67,13 @@ def create_trainer():
             email=form.email.data.strip().lower(),
             first_name=form.first_name.data.strip(),
             last_name=form.last_name.data.strip(),
-            phone=form.phone.data.strip() or None,
+            phone=form.phone.data.strip() or form.contact_no.data.strip(),
+            nic_no=clean_nic(form.nic_no.data),
             role=UserRole.TRAINER,
             is_active=True,
             created_by_id=current_user.id,
         )
-        user.set_password(form.password.data)
+        user.set_password(clean_nic(form.nic_no.data))
         db.session.add(user)
         db.session.flush()
 
@@ -91,7 +89,7 @@ def create_trainer():
         db.session.add(trainer)
         db.session.commit()
 
-        flash(f'Trainer "{user.full_name}" created successfully.', 'success')
+        flash(f'Trainer "{user.full_name}" created successfully. Their initial password is their NIC number.', 'success')
         return redirect(url_for('trainers.view_trainer', trainer_id=trainer.id))
 
     return render_template('trainers/create.html', form=form, title='Add Trainer')
@@ -124,17 +122,19 @@ def edit_trainer(trainer_id):
         flash('Archived trainer profiles cannot be edited.', 'warning')
         return redirect(url_for('trainers.view_trainer', trainer_id=trainer_id))
 
-    form = TrainerEditForm(obj=trainer)
+    form = TrainerEditForm(user_id=trainer.user_id, obj=trainer)
 
     if request.method == 'GET':
         form.first_name.data = trainer.user.first_name
         form.last_name.data = trainer.user.last_name
         form.phone.data = trainer.user.phone
+        form.nic_no.data = trainer.user.nic_no
 
     if form.validate_on_submit():
         trainer.user.first_name = form.first_name.data.strip()
         trainer.user.last_name = form.last_name.data.strip()
-        trainer.user.phone = form.phone.data.strip() or None
+        trainer.user.phone = form.phone.data.strip() or (form.contact_no.data or '').strip() or None
+        trainer.user.nic_no = clean_nic(form.nic_no.data)
         trainer.user.updated_by_id = current_user.id
         trainer.user.updated_at = datetime.utcnow()
 
@@ -207,3 +207,39 @@ def my_profile():
         flash('Trainer profile not set up yet. Contact admin.', 'warning')
         return redirect(url_for('dashboard.home'))
     return redirect(url_for('trainers.view_trainer', trainer_id=current_user.trainer_profile.id))
+
+
+@trainers_bp.route('/my-profile/edit', methods=['GET', 'POST'])
+@login_required
+def my_profile_edit():
+    """Trainer self-service: mobile number + NIC only. Everything else
+    (name, specialization, bio, certifications, etc.) stays admin-managed.
+    """
+    if current_user.role != UserRole.TRAINER:
+        return redirect(url_for('dashboard.home'))
+
+    trainer = current_user.trainer_profile
+    if not trainer:
+        flash('Trainer profile not set up yet. Contact admin.', 'warning')
+        return redirect(url_for('dashboard.home'))
+
+    form = TrainerSelfEditForm(user_id=current_user.id)
+    if request.method == 'GET':
+        form.phone.data = trainer.user.phone
+        form.nic_no.data = trainer.user.nic_no
+
+    if form.validate_on_submit():
+        mobile = form.phone.data.strip()
+        trainer.user.phone = mobile
+        trainer.contact_no = mobile  # keep account phone and profile contact in sync
+        trainer.user.nic_no = clean_nic(form.nic_no.data)
+        trainer.user.updated_by_id = current_user.id
+        trainer.user.updated_at = datetime.utcnow()
+        trainer.updated_by_id = current_user.id
+        trainer.updated_at = datetime.utcnow()
+
+        db.session.commit()
+        flash('Your contact details have been updated.', 'success')
+        return redirect(url_for('trainers.view_trainer', trainer_id=trainer.id))
+
+    return render_template('trainers/my_profile_edit.html', form=form, trainer=trainer, title='Edit My Profile')

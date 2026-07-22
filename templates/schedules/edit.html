@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('schedules.list_schedules') }}">Schedules</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('schedules.view_schedule', schedule_id=schedule.id) }}">{{ schedule.title }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Edit Schedule</h2>
+        <p>
+            Editing version {{ schedule.version }} — saving creates version {{ schedule.version + 1 }}
+            and records the change history.
+        </p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-xl-10">
+        {% include 'schedules/_form.html' %}
+    </div>
+</div>
+{% endblock %}

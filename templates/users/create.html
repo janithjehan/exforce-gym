@@ -54,13 +54,29 @@
                         </div>
                     </div>
 
-                    <!-- Phone & Role -->
+                    <!-- Phone & NIC -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             {{ form.phone.label(class='form-label') }}
                             {{ form.phone(class='form-control' + (' is-invalid' if form.phone.errors else '')) }}
                             {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
+                        <div class="col-md-6">
+                            {{ form.nic_no.label(class='form-label') }}
+                            {{ form.nic_no(class='form-control' + (' is-invalid' if form.nic_no.errors else ''), placeholder='e.g. 991234567V or 200012345678', onchange='OnchangeNic(this.value)') }}
+                            {% for e in form.nic_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            <div id="nicClientError" class="text-danger d-none" style="font-size:12.5px;"></div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text mt-0" style="font-size:11.5px;">
+                                Mobile number is <strong>required</strong> for all roles except Admin.
+                                NIC number is <strong>required</strong> for everyone — it is the initial password.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role -->
+                    <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             {{ form.role.label(class='form-label') }}
                             {{ form.role(class='form-select' + (' is-invalid' if form.role.errors else '')) }}
@@ -80,19 +96,10 @@
 
                     <hr>
 
-                    <!-- Password -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            {{ form.password.label(class='form-label') }}
-                            {{ form.password(class='form-control' + (' is-invalid' if form.password.errors else '')) }}
-                            {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                            <div class="form-text" style="font-size:11.5px;">Min. 8 chars, letter + number required.</div>
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.confirm_password.label(class='form-label') }}
-                            {{ form.confirm_password(class='form-control' + (' is-invalid' if form.confirm_password.errors else '')) }}
-                            {% for e in form.confirm_password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                        </div>
+                    <div class="alert alert-info py-2 mb-4" style="font-size:12.5px;">
+                        <i class="fa-solid fa-key me-1"></i>
+                        The user's initial password is their <strong>NIC number</strong>.
+                        They can change it after signing in.
                     </div>
 
                     <div class="d-flex gap-2">
@@ -106,4 +113,52 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showNicError(message) {
+    const errorDiv = document.getElementById('nicClientError');
+    errorDiv.innerText = message;
+    errorDiv.classList.remove('d-none');
+    document.getElementById('nic_no').classList.add('is-invalid');
+}
+
+function clearNicError() {
+    const errorDiv = document.getElementById('nicClientError');
+    errorDiv.innerText = '';
+    errorDiv.classList.add('d-none');
+    document.getElementById('nic_no').classList.remove('is-invalid');
+}
+
+// This form has no DOB/gender fields — the NIC is only validated here
+function OnchangeNic(nic_no) {
+    clearNicError();
+    const nic = (nic_no || '').replace(/\s/g, '');
+    if (!nic) {
+        showNicError('NIC cannot be empty.');
+        return;
+    }
+    let days;
+    if (nic.length === 10) {
+        if (!/^\d{9}[VXvx]$/.test(nic)) {
+            showNicError("Old NIC format must be 9 digits followed by 'V' or 'X'.");
+            return;
+        }
+        days = parseInt(nic.substring(2, 5), 10);
+    } else if (nic.length === 12) {
+        if (!/^\d{12}$/.test(nic)) {
+            showNicError('New NIC format must contain exactly 12 digits.');
+            return;
+        }
+        days = parseInt(nic.substring(4, 7), 10);
+    } else {
+        showNicError('NIC must be either 10 characters (old format) or 12 digits (new format).');
+        return;
+    }
+    if (!((days >= 1 && days <= 366) || (days >= 501 && days <= 866))) {
+        showNicError('Invalid number of days in NIC.');
+    }
+}
+</script>
 {% endblock %}

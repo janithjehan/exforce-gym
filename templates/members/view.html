@@ -291,6 +291,56 @@
             {% endif %}
         </div>
 
+        <!-- Measurements (FR-MEAS-02: admin only among staff) -->
+        {% if current_user.role.value == 'admin' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="fa-solid fa-weight-scale text-orange me-2"></i>Recent Measurements</span>
+                {% if not member.is_archived %}
+                <a href="{{ url_for('measurements.create_measurement', member_id=member.id) }}"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="fa-solid fa-plus me-1"></i>Add
+                </a>
+                {% endif %}
+            </div>
+            {% set recent_meas = member.measurements.limit(5).all() %}
+            {% if recent_meas %}
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" style="font-size:13.5px;">
+                    {% for m in recent_meas %}
+                    <li class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">{{ m.measured_on.strftime('%d %b %Y') }}</div>
+                                <div class="text-muted small">
+                                    {% for label, value, unit in m.recorded_values[:4] %}
+                                    {{ label }}: {{ '%.1f' % value }} {{ unit }}{% if not loop.last %} · {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <a href="{{ url_for('measurements.view_measurement', measurement_id=m.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if member.measurements.count() > 5 %}
+                <div class="text-center py-2 border-top" style="font-size:13px;">
+                    <a href="{{ url_for('measurements.list_measurements', search=member.full_name) }}">
+                        View all {{ member.measurements.count() }} records
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state py-4">
+                <i class="fa-solid fa-weight-scale d-block" style="font-size:28px;"></i>
+                <p class="mt-2 mb-0" style="font-size:13px;">No measurements recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Assigned Trainer / Schedule (placeholder) -->
         <div class="card">
             <div class="card-header">

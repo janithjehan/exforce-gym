@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if is_member %}
+        <li class="breadcrumb-item"><a href="{{ url_for('measurements.my_measurements') }}">My Measurements</a></li>
+        {% else %}
+        <li class="breadcrumb-item"><a href="{{ url_for('measurements.list_measurements') }}">Measurements</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Add Measurement</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Add Measurement</h2>
+        <p>{% if is_member %}Record your body measurements for today.{% else %}Record body measurements for a member.{% endif %}</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+
+                    {% if is_member %}
+                    <input type="hidden" name="member_id" value="{{ form.member_id.choices[0][0] }}">
+                    {% else %}
+                    <div class="mb-3">
+                        {{ form.member_id.label(class='form-label fw-semibold') }}
+                        {{ form.member_id(class='form-select' + (' is-invalid' if form.member_id.errors else '')) }}
+                        {% for e in form.member_id.errors %}
+                        <div class="invalid-feedback">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% include 'measurements/_fields.html' %}
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class='btn btn-primary') }}
+                        <a href="{{ url_for('measurements.my_measurements') if is_member else url_for('measurements.list_measurements') }}"
+                           class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

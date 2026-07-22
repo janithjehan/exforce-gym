@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Payroll</h2>
+        <p>Salary records for Admins, Managers, and Trainers.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('payroll.bulk_create_payroll') }}" class="btn btn-outline-primary">
+            <i class="fa-solid fa-users me-2"></i>Bulk Create
+        </a>
+        <a href="{{ url_for('payroll.create_payroll') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus me-2"></i>Create Payroll Record
+        </a>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-warning">{{ stats.pending }}</div>
+            <div class="stat-label">Pending Payroll</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">LKR {{ '{:,.0f}'.format(stats.paid_this_month) }}</div>
+            <div class="stat-label">Paid This Month</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-primary">{{ stats.staff_count }}</div>
+            <div class="stat-label">Staff on Payroll</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <!-- Filters -->
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+        <form method="GET" class="d-flex gap-2 flex-wrap align-items-center w-100">
+            <select name="staff" class="form-select form-select-sm" style="width:200px;">
+                <option value="">All Staff</option>
+                {% for id, label in staff_choices %}
+                <option value="{{ id }}" {% if staff_filter == id %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="form-select form-select-sm" style="width:150px;">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                {% for s in statuses %}
+                <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.label }}</option>
+                {% endfor %}
+            </select>
+            <input type="month" name="month" value="{{ month_filter }}" class="form-control form-control-sm"
+                   style="width:160px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            {% if staff_filter or (status_filter and status_filter != 'all') or month_filter %}
+            <a href="{{ url_for('payroll.list_payroll') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if records.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Staff</th>
+                        <th>Period</th>
+                        <th>Gross</th>
+                        <th>Net</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records.items %}
+                    <tr>
+                        <td class="text-muted small">{{ r.id }}</td>
+                        <td>
+                            <span class="fw-semibold">{{ r.user.full_name }}</span>
+                            <span class="text-muted small">({{ r.user.role.label }})</span>
+                        </td>
+                        <td class="text-muted small">{{ r.period_label }}</td>
+                        <td class="fw-semibold">LKR {{ '{:,.2f}'.format(r.gross_amount) }}</td>
+                        <td class="fw-semibold text-success">LKR {{ '{:,.2f}'.format(r.net_amount) }}</td>
+                        <td>
+                            <span class="badge bg-{{ r.status.badge_class }} bg-opacity-15 text-{{ r.status.badge_class }}">
+                                {{ r.status.label }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('payroll.view_payroll', payroll_id=r.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if records.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('payroll.list_payroll', page=records.prev_num, staff=staff_filter, status=status_filter, month=month_filter) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == records.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('payroll.list_payroll', page=p, staff=staff_filter, status=status_filter, month=month_filter) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not records.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('payroll.list_payroll', page=records.next_num, staff=staff_filter, status=status_filter, month=month_filter) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-sack-dollar fa-2x mb-3 d-block"></i>
+            No payroll records found.
+            <a href="{{ url_for('payroll.create_payroll') }}">Create one</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

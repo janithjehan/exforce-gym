@@ -39,11 +39,27 @@ class Config:
         os.environ.get('PAYHERE_NOTIFY_BASE_URL', ''),  # fall back to notify base
     )
 
+    # FR-SUP-02: members can view the supplement catalog (if enabled)
+    SUPPLEMENTS_MEMBER_VIEW = os.environ.get('SUPPLEMENTS_MEMBER_VIEW', 'True') == 'True'
+
     # Notify.lk SMS gateway (FR-NOT-04: SMS channel optional)
     NOTIFYLK_ENABLED = os.environ.get('NOTIFYLK_ENABLED', 'False') == 'True'
     NOTIFYLK_USER_ID = os.environ.get('NOTIFYLK_USER_ID', '')
     NOTIFYLK_API_KEY = os.environ.get('NOTIFYLK_API_KEY', '')
     NOTIFYLK_SENDER_ID = os.environ.get('NOTIFYLK_SENDER_ID', 'NotifyDEMO')
+
+    # Outbound email (forgot-password reset links). When disabled/unconfigured,
+    # the reset link is logged to the console instead of emailed — safe for dev.
+    MAIL_ENABLED = os.environ.get('MAIL_ENABLED', 'False') == 'True'
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', '')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'no-reply@exforcegym.local')
+
+    # Password reset token lifetime (seconds)
+    PASSWORD_RESET_MAX_AGE = int(os.environ.get('PASSWORD_RESET_MAX_AGE', 3600))
 
 
 class DevelopmentConfig(Config):

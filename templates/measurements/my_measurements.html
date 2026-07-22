@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>My Measurements</h2>
+        <p>Track your body measurements over time.</p>
+    </div>
+    <a href="{{ url_for('measurements.create_measurement') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Add Measurement
+    </a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <!-- Weight trend chart -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-chart-line text-orange me-2"></i>Weight Trend
+            </div>
+            <div class="card-body">
+                {% if trend.weights | length >= 2 %}
+                <canvas id="weightChart" height="110"></canvas>
+                {% elif trend.weights | length == 1 %}
+                <div class="text-center py-4 text-muted small">
+                    <i class="fa-solid fa-chart-line fa-2x mb-2 d-block"></i>
+                    One weight entry so far ({{ '%.1f' % trend.weights[0] }} kg) — add more to see your trend.
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted small">
+                    <i class="fa-solid fa-chart-line fa-2x mb-2 d-block"></i>
+                    No weight entries yet — record your weight to start tracking.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- History table -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-weight-scale text-orange me-2"></i>Measurement History
+            </div>
+            <div class="card-body p-0">
+                {% if records.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Weight</th>
+                                <th>Chest</th>
+                                <th>Waist</th>
+                                <th>Hips</th>
+                                <th>Arms</th>
+                                <th>Thighs</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in records.items %}
+                            <tr>
+                                <td class="fw-semibold small">{{ r.measured_on.strftime('%d %b %Y') }}</td>
+                                <td class="small">{{ '%.1f' % r.weight_kg if r.weight_kg is not none else '—' }}</td>
+                                <td class="small">{{ '%.1f' % r.chest_cm if r.chest_cm is not none else '—' }}</td>
+                                <td class="small">{{ '%.1f' % r.waist_cm if r.waist_cm is not none else '—' }}</td>
+                                <td class="small">{{ '%.1f' % r.hips_cm if r.hips_cm is not none else '—' }}</td>
+                                <td class="small">{{ '%.1f' % r.arms_cm if r.arms_cm is not none else '—' }}</td>
+                                <td class="small">{{ '%.1f' % r.thighs_cm if r.thighs_cm is not none else '—' }}</td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('measurements.view_measurement', measurement_id=r.id) }}"
+                                       class="btn btn-sm btn-outline-secondary">View</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if records.pages > 1 %}
+                <div class="d-flex justify-content-center py-3">
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('measurements.my_measurements', page=records.prev_num) }}">
+                                    <i class="fa-solid fa-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if p %}
+                                <li class="page-item {% if p == records.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('measurements.my_measurements', page=p) }}">{{ p }}</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            <li class="page-item {% if not records.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('measurements.my_measurements', page=records.next_num) }}">
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-weight-scale fa-2x mb-3 d-block"></i>
+                    No measurements recorded yet.
+                    <div class="mt-3">
+                        <a href="{{ url_for('measurements.create_measurement') }}" class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-plus me-2"></i>Record Your First Measurement
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Latest snapshot -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-ruler text-orange me-2"></i>Latest Measurement
+            </div>
+            {% if latest %}
+            <div class="card-body">
+                <div class="text-muted small mb-3">{{ latest.measured_on.strftime('%d %B %Y') }}</div>
+                <div class="row g-2">
+                    {% for label, value, unit in latest.recorded_values %}
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="fw-bold">{{ '%.1f' % value }} <span class="text-muted small">{{ unit }}</span></div>
+                            <div class="text-muted" style="font-size:11.5px;">{{ label }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if latest.bmi is not none %}
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center bg-light">
+                            <div class="fw-bold">{{ latest.bmi }}</div>
+                            <div class="text-muted" style="font-size:11.5px;">BMI</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="d-grid mt-3">
+                    <a href="{{ url_for('measurements.view_measurement', measurement_id=latest.id) }}"
+                       class="btn btn-outline-secondary btn-sm">View Details</a>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">
+                <i class="fa-solid fa-ruler fa-2x mb-2 d-block"></i>
+                Nothing recorded yet.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if trend.weights | length >= 2 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    new Chart(document.getElementById('weightChart'), {
+        type: 'line',
+        data: {
+            labels: {{ trend.labels | tojson }},
+            datasets: [{
+                label: 'Weight (kg)',
+                data: {{ trend.weights | tojson }},
+                borderColor: '#fd7e14',
+                backgroundColor: 'rgba(253, 126, 20, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    title: { display: true, text: 'kg' },
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

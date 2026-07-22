@@ -60,6 +60,19 @@
                             {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
                         <div class="col-md-6">
+                            {{ form.nic_no.label(class='form-label') }}
+                            {{ form.nic_no(class='form-control' + (' is-invalid' if form.nic_no.errors else ''), placeholder='e.g. 991234567V or 200012345678') }}
+                            {% for e in form.nic_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text mt-0" style="font-size:11.5px;">
+                                Mobile number and NIC number are <strong>required</strong> for all roles except Admin.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
                             {{ form.role.label(class='form-label') }}
                             {{ form.role(class='form-select' + (' is-invalid' if form.role.errors else '')) }}
                             {% for e in form.role.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}

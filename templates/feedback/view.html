@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.is_admin %}
+        <li class="breadcrumb-item"><a href="{{ url_for('feedback.list_feedback') }}">Feedback</a></li>
+        {% else %}
+        <li class="breadcrumb-item"><a href="{{ url_for('feedback.my_feedback') }}">My Feedback</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Feedback #{{ record.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Feedback #{{ record.id }}</h2>
+        <p>{{ record.member.full_name }} — {{ record.created_at.strftime('%d %B %Y %H:%M') }}</p>
+    </div>
+    <span class="badge bg-{{ record.status.badge_class }} px-3 py-2" style="font-size:13px;">
+        {{ record.status.label }}
+    </span>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <!-- Feedback content -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-comments text-orange me-2"></i>Feedback
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+                    <span class="badge bg-secondary bg-opacity-15 text-secondary">{{ record.category_label }}</span>
+                    <span class="text-nowrap">
+                        {% for i in range(1, 6) %}
+                        <i class="fa-{% if i <= record.rating %}solid text-warning{% else %}regular text-muted{% endif %} fa-star"></i>
+                        {% endfor %}
+                        <span class="text-muted small ms-1">{{ record.rating }} / 5</span>
+                    </span>
+                </div>
+                <p class="mb-0" style="white-space: pre-line;">{{ record.comments }}</p>
+            </div>
+        </div>
+
+        <!-- Response (member sees it read-only) -->
+        {% if record.has_response %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-reply text-orange me-2"></i>Response from the Gym
+            </div>
+            <div class="card-body">
+                <p class="mb-2" style="white-space: pre-line;">{{ record.admin_response }}</p>
+                <div class="text-muted small">
+                    — {{ record.responded_by.full_name if record.responded_by else 'Admin' }},
+                    {{ record.responded_at.strftime('%d %b %Y %H:%M') if record.responded_at else '' }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Record info -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-info text-orange me-2"></i>Record Info
+            </div>
+            <div class="card-body" style="font-size:13.5px;">
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Member</span>
+                    <span>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('members.view_member', member_id=record.member_id) }}"
+                           class="text-decoration-none">{{ record.member.full_name }}</a>
+                        {% else %}
+                        {{ record.member.full_name }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                    <span class="text-muted">Submitted</span>
+                    <span>{{ record.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">Status</span>
+                    <span class="badge bg-{{ record.status.badge_class }} bg-opacity-15 text-{{ record.status.badge_class }}">
+                        {{ record.status.label }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if respond_form %}
+    <div class="col-lg-5">
+        <!-- Admin respond / status panel -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-reply text-orange me-2"></i>Respond & Update Status
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('feedback.respond_feedback', feedback_id=record.id) }}">
+                    {{ respond_form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ respond_form.status.label(class='form-label fw-semibold') }}
+                        {{ respond_form.status(class='form-select') }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ respond_form.admin_response.label(class='form-label fw-semibold') }}
+                        {{ respond_form.admin_response(class='form-control') }}
+                        <div class="form-text">The member will see this response on their feedback page.</div>
+                    </div>
+
+                    {{ respond_form.submit(class='btn btn-primary') }}
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

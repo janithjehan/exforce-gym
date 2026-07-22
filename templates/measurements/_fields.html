@@ -1,0 +1,35 @@
+{# Shared measurement fields — used by create.html and edit.html #}
+<div class="mb-3">
+    {{ form.measured_on.label(class='form-label fw-semibold') }}
+    <input type="date" name="measured_on"
+           class="form-control {% if form.measured_on.errors %}is-invalid{% endif %}"
+           value="{{ form.measured_on.data.strftime('%Y-%m-%d') if form.measured_on.data else '' }}">
+    {% for e in form.measured_on.errors %}
+    <div class="invalid-feedback">{{ e }}</div>
+    {% endfor %}
+</div>
+
+<div class="form-text mb-2">
+    Fill in only the values measured — every field is optional, but at least one is required.
+</div>
+
+<div class="row g-3 mb-3">
+    {% for field in [form.weight_kg, form.height_cm, form.chest_cm, form.waist_cm,
+                     form.hips_cm, form.arms_cm, form.thighs_cm] %}
+    <div class="col-6 col-md-4">
+        {{ field.label(class='form-label fw-semibold small') }}
+        {{ field(class='form-control' + (' is-invalid' if field.errors else ''), type='number') }}
+        {% for e in field.errors %}
+        <div class="invalid-feedback">{{ e }}</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mb-4">
+    {{ form.notes.label(class='form-label fw-semibold') }}
+    {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+    {% for e in form.notes.errors %}
+    <div class="invalid-feedback">{{ e }}</div>
+    {% endfor %}
+</div>

@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('workouts.list_workouts') }}">Workout Library</a></li>
+        <li class="breadcrumb-item active">{{ workout.name }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>{{ workout.name }}</h2>
+        <p>
+            <span class="badge bg-{{ workout.status_badge_class }} me-2">{{ workout.status_label }}</span>
+            {{ workout.workout_type.label }} &middot; {{ workout.muscle_group.label }} &middot;
+            <span class="badge bg-{{ workout.difficulty.badge_class }} bg-opacity-15 text-{{ workout.difficulty.badge_class }}">
+                {{ workout.difficulty.label }}
+            </span>
+        </p>
+    </div>
+    {% if not workout.is_archived %}
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('workouts.edit_workout', workout_id=workout.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-pen me-1"></i>Edit
+        </a>
+        <form method="POST" action="{{ url_for('workouts.toggle_status', workout_id=workout.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if workout.is_active %}
+            <button type="submit" class="btn btn-outline-warning btn-sm">
+                <i class="fa-solid fa-ban me-1"></i>Deactivate
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="fa-solid fa-circle-check me-1"></i>Activate
+            </button>
+            {% endif %}
+        </form>
+        <form method="POST" action="{{ url_for('workouts.archive_workout', workout_id=workout.id) }}"
+              onsubmit="return confirm('Archive this workout? It will no longer be usable in schedules.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-archive me-1"></i>Archive
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Workout Details</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Name</dt>
+                    <dd class="col-sm-8">{{ workout.name }}</dd>
+
+                    <dt class="col-sm-4">Type</dt>
+                    <dd class="col-sm-8">{{ workout.workout_type.label }}</dd>
+
+                    <dt class="col-sm-4">Muscle Group</dt>
+                    <dd class="col-sm-8">{{ workout.muscle_group.label }}</dd>
+
+                    <dt class="col-sm-4">Difficulty</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-{{ workout.difficulty.badge_class }} bg-opacity-15 text-{{ workout.difficulty.badge_class }}">
+                            {{ workout.difficulty.label }}
+                        </span>
+                    </dd>
+
+                    <dt class="col-sm-4">Equipment</dt>
+                    <dd class="col-sm-8">{{ workout.equipment_label }}</dd>
+
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-{{ workout.status_badge_class }}">{{ workout.status_label }}</span>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header"><strong>Instructions</strong></div>
+            <div class="card-body">
+                {% if workout.instructions %}
+                <p class="mb-0" style="white-space: pre-line;">{{ workout.instructions }}</p>
+                {% else %}
+                <span class="text-muted">No instructions provided.</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><strong>Audit Info</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Created</dt>
+                    <dd class="col-sm-8">
+                        {{ workout.created_at.strftime('%d %b %Y, %H:%M') }}
+                        {% if workout.created_by %}
+                        <span class="text-muted">by {{ workout.created_by.full_name }}</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Last Updated</dt>
+                    <dd class="col-sm-8">
+                        {{ workout.updated_at.strftime('%d %b %Y, %H:%M') }}
+                        {% if workout.updated_by %}
+                        <span class="text-muted">by {{ workout.updated_by.full_name }}</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,13 +1,15 @@
 from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, session
+from flask import render_template, redirect, url_for, flash, request, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app.blueprints.auth import auth_bp
-from app.blueprints.auth.forms import LoginForm, RegisterForm, ChangePasswordForm
+from app.blueprints.auth.forms import (LoginForm, RegisterForm, ChangePasswordForm, ForgotPasswordForm, ResetPasswordForm,)
 from app.extensions import db
 from app.models.user import User, UserRole, LoginActivityLog
 from app.models.member import Member
 from app.utils.decorators import log_activity
+from app.utils.mailer import send_email
+from app.utils.tokens import generate_reset_token, verify_reset_token
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -33,7 +35,7 @@ def login():
                 _log_failed(user)
                 return render_template('auth/login.html', form=form)
 
-            login_user(user, remember=form.remember_me.data)
+            login_user(user)
             session['last_activity'] = datetime.utcnow().isoformat()
             session.permanent = True
 
@@ -59,8 +61,8 @@ def login():
 def logout():
     log_activity(LoginActivityLog.Action.LOGOUT)
     db.session.commit()
-    logout_user()
     session.clear()
+    logout_user()
     flash('You have been signed out successfully.', 'info')
     return redirect(url_for('auth.login'))
 
@@ -77,7 +79,6 @@ def register():
             email=form.email.data.strip().lower(),
             first_name=form.first_name.data.strip(),
             last_name=form.last_name.data.strip(),
-            phone=form.phone.data.strip() or None,
             role=UserRole.MEMBER,
             is_active=True,
         )
@@ -85,15 +86,17 @@ def register():
         db.session.add(user)
         db.session.flush()  # get user.id
 
-        # Auto-create a basic Member profile for self-registered users
+        # Auto-create a basic Member profile for self-registered users.
+        # Mobile number and NIC (with DOB/gender decoded from it) are filled
+        # in later via Edit My Profile — quick signup first, details after.
         member = Member(
             user_id=user.id,
-            contact_no=form.phone.data.strip() if form.phone.data else '',
+            contact_no='',
             join_date=datetime.utcnow().date(),
         )
         db.session.add(member)
         db.session.commit()
-        flash('Account created successfully! You can now sign in.', 'success')
+        flash('Account created successfully! Add your mobile number and NIC from "Edit My Profile" after signing in.', 'success')
         return redirect(url_for('auth.login'))
 
     return render_template('auth/register.html', form=form)
@@ -116,6 +119,59 @@ def change_password():
         return redirect(url_for('dashboard.home'))
 
     return render_template('auth/change_password.html', form=form)
+
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.home'))
+
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+        user = User.query.filter_by(email=email).first()
+
+        if user and user.is_active and not user.is_archived:
+            token = generate_reset_token(user)
+            reset_url = url_for('auth.reset_password', token=token, _external=True)
+            gym_name = current_app.config.get('GYM_NAME', 'Exforce Gym')
+            max_age_minutes = current_app.config.get('PASSWORD_RESET_MAX_AGE', 3600) // 60
+            body = (
+                f"Hi {user.first_name},\n\n"
+                f"We received a request to reset your {gym_name} password.\n\n"
+                f"Reset it here (valid for {max_age_minutes} minutes):\n{reset_url}\n\n"
+                "If you didn't request this, you can safely ignore this email.\n"
+            )
+            send_email(user.email, f'{gym_name} — Password Reset', body)
+
+        # Same message whether or not the email matched — avoids leaking
+        # which addresses have accounts.
+        flash('If that email is registered, a password reset link has been sent to it.', 'info')
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/forgot_password.html', form=form)
+
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.home'))
+
+    user = verify_reset_token(token)
+    if not user:
+        flash('That password reset link is invalid or has expired. Please request a new one.', 'danger')
+        return redirect(url_for('auth.forgot_password'))
+
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.new_password.data)
+        user.updated_at = datetime.utcnow()
+        log_activity(LoginActivityLog.Action.PASSWORD_CHANGED, details='Reset via forgot-password link', user_id=user.id)
+        db.session.commit()
+        flash('Your password has been reset. You can now sign in.', 'success')
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/reset_password.html', form=form)
 
 
 def _log_failed(user):

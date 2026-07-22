@@ -6,9 +6,11 @@ from app.blueprints.users import users_bp
 from app.blueprints.users.forms import UserCreateForm, UserEditForm, AdminResetPasswordForm
 from app.extensions import db
 from app.models.user import User, UserRole, LoginActivityLog
-from app.models.member import Member
+from app.models.member import Member, Gender
 from app.models.trainer import Trainer
 from app.utils.decorators import admin_required, log_activity
+from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.validators import clean_nic, parse_nic
 
 USERS_PER_PAGE = 15
 
@@ -23,17 +25,12 @@ def list_users():
 
     query = User.query
 
-    # Search across name, username, email
-    if search:
-        like = f'%{search}%'
-        query = query.filter(
-            db.or_(
-                User.username.ilike(like),
-                User.email.ilike(like),
-                User.first_name.ilike(like),
-                User.last_name.ilike(like),
-            )
-        )
+    # Search across name, username, email (comma-separated = match any)
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.username, User.email, User.first_name, User.last_name,
+        ]))
 
     # Role filter
     if role_filter and role_filter in [r.value for r in UserRole]:
@@ -76,20 +73,25 @@ def create_user():
             first_name=form.first_name.data.strip(),
             last_name=form.last_name.data.strip(),
             phone=form.phone.data.strip() or None,
+            nic_no=(form.nic_no.data or '').strip().upper() or None,
             role=UserRole(form.role.data),
             is_active=form.is_active.data,
             created_by_id=current_user.id,
         )
-        user.set_password(form.password.data)
+        user.set_password(clean_nic(form.nic_no.data))
         db.session.add(user)
         db.session.flush()  # get user.id
 
-        # Auto-create a basic Member profile for MEMBER-role users
+        # Auto-create a basic Member profile for MEMBER-role users;
+        # DOB and gender are decoded from the NIC
         if user.role == UserRole.MEMBER:
+            nic_dob, nic_gender = parse_nic(user.nic_no)
             member = Member(
                 user_id=user.id,
                 contact_no=user.phone or '',
                 join_date=datetime.utcnow().date(),
+                date_of_birth=nic_dob,
+                gender=Gender(nic_gender) if nic_gender else None,
                 created_by_id=current_user.id,
             )
             db.session.add(member)
@@ -103,7 +105,7 @@ def create_user():
             db.session.add(trainer)
 
         db.session.commit()
-        flash(f'User "{user.username}" created successfully.', 'success')
+        flash(f'User "{user.username}" created successfully. Their initial password is their NIC number.', 'success')
         return redirect(url_for('users.list_users'))
 
     return render_template('users/create.html', form=form, title='Create User')
@@ -151,6 +153,7 @@ def edit_user(user_id):
         user.first_name = form.first_name.data.strip()
         user.last_name = form.last_name.data.strip()
         user.phone = form.phone.data.strip() or None
+        user.nic_no = (form.nic_no.data or '').strip().upper() or None
         user.role = UserRole(form.role.data)
         user.is_active = form.is_active.data
         user.updated_by_id = current_user.id
@@ -158,6 +161,27 @@ def edit_user(user_id):
 
         if form.password.data:
             user.set_password(form.password.data)
+
+        # Role changed to MEMBER/TRAINER: make sure the matching profile exists
+        # (same auto-creation as create_user, otherwise member/trainer pages break)
+        if user.role == UserRole.MEMBER and not user.member_profile:
+            nic_dob, nic_gender = parse_nic(user.nic_no)
+            db.session.add(Member(
+                user_id=user.id,
+                contact_no=user.phone or '',
+                join_date=datetime.utcnow().date(),
+                date_of_birth=nic_dob,
+                gender=Gender(nic_gender) if nic_gender else None,
+                created_by_id=current_user.id,
+            ))
+            flash('A member profile was created for this user.', 'info')
+        elif user.role == UserRole.TRAINER and not user.trainer_profile:
+            db.session.add(Trainer(
+                user_id=user.id,
+                contact_no=user.phone or '',
+                created_by_id=current_user.id,
+            ))
+            flash('A trainer profile was created for this user.', 'info')
 
         db.session.commit()
         flash(f'User "{user.username}" updated successfully.', 'success')

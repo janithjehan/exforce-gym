@@ -1,6 +1,6 @@
 import re
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField
+from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, Regexp, ValidationError)
 from app.models.user import User
 
@@ -24,7 +24,6 @@ class LoginForm(FlaskForm):
         validators=[DataRequired()],
         render_kw={'placeholder': 'Password'},
     )
-    remember_me = BooleanField('Keep me signed in')
     submit = SubmitField('Sign In')
 
 
@@ -56,11 +55,6 @@ class RegisterForm(FlaskForm):
         validators=[DataRequired(), Length(max=80)],
         render_kw={'placeholder': 'Last name'},
     )
-    phone = StringField(
-        'Phone (optional)',
-        validators=[Length(max=20)],
-        render_kw={'placeholder': '+94 xx xxx xxxx'},
-    )
     password = PasswordField(
         'Password',
         validators=[
@@ -84,6 +78,33 @@ class RegisterForm(FlaskForm):
     def validate_email(self, field):
         if User.query.filter_by(email=field.data).first():
             raise ValidationError('That email address is already registered.')
+
+
+class ForgotPasswordForm(FlaskForm):
+    email = StringField(
+        'Email',
+        validators=[DataRequired(), Email(), Length(max=120)],
+        render_kw={'placeholder': 'your@email.com', 'autofocus': True},
+    )
+    submit = SubmitField('Send Reset Link')
+
+
+class ResetPasswordForm(FlaskForm):
+    new_password = PasswordField(
+        'New Password',
+        validators=[
+            DataRequired(),
+            Length(min=8, message='Password must be at least 8 characters.'),
+            _validate_password_strength,
+        ],
+        render_kw={'placeholder': 'New password'},
+    )
+    confirm_password = PasswordField(
+        'Confirm New Password',
+        validators=[DataRequired(), EqualTo('new_password', message='Passwords must match.')],
+        render_kw={'placeholder': 'Repeat new password'},
+    )
+    submit = SubmitField('Reset Password')
 
 
 class ChangePasswordForm(FlaskForm):

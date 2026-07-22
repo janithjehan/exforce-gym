@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Equipment</h2>
+        <p>Track gym equipment inventory and availability.</p>
+    </div>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('equipment.create_equipment') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>New Equipment
+    </a>
+    {% endif %}
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ total_items }}</div>
+            <div class="stat-label">Equipment Types</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ total_units }}</div>
+            <div class="stat-label">Total Units</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value {% if out_of_service %}text-danger{% endif %}">{{ out_of_service }}</div>
+            <div class="stat-label">Out of Service</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('equipment.list_equipment', status='all') }}">All</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'available' %}active{% endif %}"
+                   href="{{ url_for('equipment.list_equipment', status='available') }}">Available</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'out_of_service' %}active{% endif %}"
+                   href="{{ url_for('equipment.list_equipment', status='out_of_service') }}">Out of Service</a>
+            </li>
+        </ul>
+
+        <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search equipment... (comma-separated)" style="width:210px;">
+            <select name="category" class="form-select form-select-sm" style="width:170px;">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                <option value="{{ c.value }}" {% if category_filter == c.value %}selected{% endif %}>{{ c.label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-filter"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if equipment.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="width:70px;"></th>
+                        <th>Equipment</th>
+                        <th>Category</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in equipment.items %}
+                    <tr>
+                        <td>
+                            {% if e.image_path %}
+                            <img src="{{ url_for('static', filename=e.image_path) }}" alt="{{ e.name }}"
+                                 class="rounded" style="width:48px;height:48px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded bg-light d-flex align-items-center justify-content-center text-muted"
+                                 style="width:48px;height:48px;">
+                                <i class="fa-solid fa-wrench"></i>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('equipment.view_equipment', equipment_id=e.id) }}" class="fw-semibold text-decoration-none">
+                                {{ e.name }}
+                            </a>
+                        </td>
+                        <td>{{ e.category.label }}</td>
+                        <td>{{ e.quantity }}</td>
+                        <td>
+                            <span class="badge bg-{{ e.status_badge_class }}">{{ e.status_label }}</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('equipment.view_equipment', equipment_id=e.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if equipment.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not equipment.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('equipment.list_equipment', page=equipment.prev_num, status=status_filter, q=search, category=category_filter) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in equipment.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == equipment.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('equipment.list_equipment', page=p, status=status_filter, q=search, category=category_filter) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not equipment.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('equipment.list_equipment', page=equipment.next_num, status=status_filter, q=search, category=category_filter) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-wrench fa-2x mb-3 d-block"></i>
+            No equipment found.
+            {% if status_filter != 'all' or search or category_filter %}
+            <a href="{{ url_for('equipment.list_equipment', status='all') }}">Clear filters</a>{% if current_user.is_admin %} or{% endif %}
+            {% endif %}
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('equipment.create_equipment') }}">add one</a>.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

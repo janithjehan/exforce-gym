@@ -43,6 +43,12 @@
         </form>
         {% endif %}
     </div>
+    {% elif current_user.role.value == 'trainer' and current_user.trainer_profile and current_user.trainer_profile.id == trainer.id %}
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('trainers.my_profile_edit') }}" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-user-pen me-1"></i>Edit My Profile
+        </a>
+    </div>
     {% endif %}
 </div>
 

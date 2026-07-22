@@ -27,6 +27,8 @@ class User(db.Model, UserMixin):
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     phone = db.Column(db.String(20), nullable=True)
+    # Required (form-level) for MANAGER accounts; optional for other roles
+    nic_no = db.Column(db.String(20), nullable=True)
 
     # Role & status
     role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.MEMBER)

@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Measurements</h2>
+        <p>Member body measurement history.</p>
+    </div>
+    <a href="{{ url_for('measurements.create_measurement') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Add Measurement
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Records</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.members_tracked }}</div>
+            <div class="stat-label">Members Tracked</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.this_month }}</div>
+            <div class="stat-label">This Month</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <span class="fw-semibold"><i class="fa-solid fa-weight-scale text-orange me-2"></i>Measurement Records</span>
+        <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
+            <input type="search" name="search" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search member name or email... (comma-separated)" style="width:260px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if records.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Date</th>
+                        <th>Weight</th>
+                        <th>Chest</th>
+                        <th>Waist</th>
+                        <th>BMI</th>
+                        <th>Edited</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records.items %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('members.view_member', member_id=r.member_id) }}"
+                               class="fw-semibold text-decoration-none">{{ r.member.full_name }}</a>
+                        </td>
+                        <td class="text-muted small">{{ r.measured_on.strftime('%d %b %Y') }}</td>
+                        <td class="small">{{ '%.1f kg' % r.weight_kg if r.weight_kg is not none else '—' }}</td>
+                        <td class="small">{{ '%.1f cm' % r.chest_cm if r.chest_cm is not none else '—' }}</td>
+                        <td class="small">{{ '%.1f cm' % r.waist_cm if r.waist_cm is not none else '—' }}</td>
+                        <td class="small">{{ r.bmi if r.bmi is not none else '—' }}</td>
+                        <td>
+                            {% if r.was_edited %}
+                            <span class="badge bg-warning bg-opacity-15 text-warning">Edited</span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('measurements.view_measurement', measurement_id=r.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if records.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('measurements.list_measurements', page=records.prev_num, search=search) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == records.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('measurements.list_measurements', page=p, search=search) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not records.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('measurements.list_measurements', page=records.next_num, search=search) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-weight-scale fa-2x mb-3 d-block"></i>
+            No measurement records yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -57,12 +57,6 @@
                 </div>
 
                 <div class="mb-3">
-                    {{ form.phone.label(class='form-label') }}
-                    {{ form.phone(class='form-control' + (' is-invalid' if form.phone.errors else '')) }}
-                    {% for e in form.phone.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                </div>
-
-                <div class="mb-3">
                     {{ form.password.label(class='form-label') }}
                     {{ form.password(class='form-control' + (' is-invalid' if form.password.errors else '')) }}
                     {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
@@ -73,6 +67,11 @@
                     {{ form.confirm_password.label(class='form-label') }}
                     {{ form.confirm_password(class='form-control' + (' is-invalid' if form.confirm_password.errors else '')) }}
                     {% for e in form.confirm_password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+
+                <div class="form-text mb-3" style="font-size:11.5px;">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    You can add your mobile number and NIC from "Edit My Profile" after signing in.
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
