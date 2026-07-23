@@ -27,24 +27,56 @@
     </div>
 </div>
 
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('packages.list_packages') }}" class="row g-2 align-items-end">
+            <div class="col-lg-5 col-md-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Search</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Name, email or contact no… (comma-separate for multiple)" value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="all"      {% if status_filter == 'all' %}selected{% endif %}>All (excl. archived)</option>
+                    <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter me-1"></i>Filter
+                </button>
+                <a href="{{ url_for('packages.list_packages') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Filter Tabs -->
 <div class="card">
-    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
-        <ul class="nav nav-tabs card-header-tabs mb-0">
-            <li class="nav-item">
-                <a class="nav-link {% if status_filter == 'active' %}active{% endif %}"
-                   href="{{ url_for('packages.list_packages', status='active') }}">Active</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if status_filter == 'inactive' %}active{% endif %}"
-                   href="{{ url_for('packages.list_packages', status='inactive') }}">Inactive</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
-                   href="{{ url_for('packages.list_packages', status='all') }}">All</a>
-            </li>
-        </ul>
-    </div>
+<!--    <div class="card-header d-flex align-items-center gap-3 flex-wrap">-->
+<!--        <ul class="nav nav-tabs card-header-tabs mb-0">-->
+<!--            <li class="nav-item">-->
+<!--                <a class="nav-link {% if status_filter == 'active' %}active{% endif %}"-->
+<!--                   href="{{ url_for('packages.list_packages', status='active') }}">Active</a>-->
+<!--            </li>-->
+<!--            <li class="nav-item">-->
+<!--                <a class="nav-link {% if status_filter == 'inactive' %}active{% endif %}"-->
+<!--                   href="{{ url_for('packages.list_packages', status='inactive') }}">Inactive</a>-->
+<!--            </li>-->
+<!--            <li class="nav-item">-->
+<!--                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"-->
+<!--                   href="{{ url_for('packages.list_packages', status='all') }}">All</a>-->
+<!--            </li>-->
+<!--        </ul>-->
+<!--    </div>-->
 
     <div class="card-body p-0">
         {% if packages.items %}
@@ -80,6 +112,16 @@
                         <td class="text-end">
                             <a href="{{ url_for('packages.view_package', package_id=pkg.id) }}"
                                class="btn btn-sm btn-outline-secondary">View</a>
+                            {% if pkg.is_archived %}
+                            <form method="POST"
+                                  action="{{ url_for('packages.restore_package', package_id=pkg.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
