@@ -7,11 +7,11 @@ class Package(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    duration_months = db.Column(db.Integer, nullable=False)  # FR-PKG-01
+    duration_months = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Numeric(10, 2), nullable=False)
     description = db.Column(db.Text, nullable=True)
 
-    # FR-PKG-03: disabled packages cannot be assigned to new memberships
+    # Disabled packages cannot be assigned to new memberships
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
@@ -35,6 +35,7 @@ class Package(db.Model):
 
     @property
     def duration_label(self):
+        """Human-readable duration, e.g. '12 Months (1 Year)' or 'N Months' for non-preset values."""
         for months, label in self.DURATION_CHOICES:
             if months == self.duration_months:
                 return label
@@ -42,15 +43,18 @@ class Package(db.Model):
 
     @property
     def status_label(self):
+        """Display status: 'Archived', 'Active', or 'Inactive'."""
         if self.is_archived:
             return 'Archived'
         return 'Active' if self.is_active else 'Inactive'
 
     @property
     def status_badge_class(self):
+        """Bootstrap badge color class matching status_label."""
         if self.is_archived:
             return 'secondary'
         return 'success' if self.is_active else 'warning'
 
     def __repr__(self):
+        """Debug representation showing name and duration."""
         return f'<Package {self.name} ({self.duration_months}mo)>'

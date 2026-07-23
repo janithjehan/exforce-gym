@@ -1,16 +1,15 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, TextAreaField, SubmitField
+from wtforms import StringField, TextAreaField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
-from wtforms.fields import DecimalField
+from wtforms.fields import DecimalField, IntegerField
 from app.models.package import Package
 
 
 class PackageForm(FlaskForm):
     name = StringField('Package Name', validators=[DataRequired(), Length(max=100)])
-    duration_months = SelectField(
-        'Duration',
-        choices=[(str(m), label) for m, label in Package.DURATION_CHOICES],
-        validators=[DataRequired()],
+    duration_months = IntegerField(
+        'Duration (Months)',
+        validators=[DataRequired(), NumberRange(min=1, message='Duration must be at least 1 month.')],
     )
     price = DecimalField(
         'Price (LKR)',
@@ -25,6 +24,7 @@ class PackageForm(FlaskForm):
     submit = SubmitField('Save Package')
 
     def validate_name(self, field):
+        """Reject names that collide (case-insensitively) with another non-archived package."""
         from flask import request
         pkg_id = request.view_args.get('package_id')
         query = Package.query.filter(
