@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        {% if current_user.is_admin or current_user.is_manager %}
+        <li class="breadcrumb-item"><a href="{{ url_for('trainer_requests.list_requests') }}">Trainer Requests</a></li>
+        {% elif current_user.is_trainer %}
+        <li class="breadcrumb-item"><a href="{{ url_for('trainer_requests.incoming') }}">Requests</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Request #{{ req.id }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Trainer Request #{{ req.id }}</h2>
+        <p>
+            {{ req.member.full_name }} → {{ req.trainer.full_name }}
+            <span class="badge bg-{{ req.status_badge_class }} ms-1">{{ req.status_label }}</span>
+        </p>
+    </div>
+    {% if can_act and req.is_pending %}
+    <div class="d-flex gap-2">
+        <form method="POST" action="{{ url_for('trainer_requests.accept_request', request_id=req.id) }}"
+              onsubmit="return confirm('Accept this request? The member will become one of the trainer\'s members.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-success">
+                <i class="fa-solid fa-check me-1"></i>Accept
+            </button>
+        </form>
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectRequestModal">
+            <i class="fa-solid fa-xmark me-1"></i>Reject
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- Member details -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-id-badge text-orange me-2"></i>Member Details
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    {{ avatar(member.user, 'user-avatar user-avatar-lg') }}
+                    <div>
+                        <h5 class="fw-bold mb-1">{{ member.full_name }}</h5>
+                        <div class="text-muted" style="font-size:13px;">{{ member.email }}</div>
+                        <span class="badge bg-{{ member.status_badge_class }} mt-1">{{ member.status_label }}</span>
+                    </div>
+                </div>
+                <ul class="list-unstyled mb-0" style="font-size:13.5px;">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-phone fa-fw me-2"></i>Contact</span>
+                        <span>{{ member.contact_no or '—' }}</span>
+                    </li>
+                    {% if member.age %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-cake-candles fa-fw me-2"></i>Age</span>
+                        <span>{{ member.age }} years</span>
+                    </li>
+                    {% endif %}
+                    {% if member.gender %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-venus-mars fa-fw me-2"></i>Gender</span>
+                        <span>{{ member.gender.label }}</span>
+                    </li>
+                    {% endif %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-calendar fa-fw me-2"></i>Member Since</span>
+                        <span>{{ member.join_date.strftime('%d %b %Y') }}</span>
+                    </li>
+                    {% if member.address %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted"><i class="fa-solid fa-location-dot fa-fw me-2"></i>Address</span>
+                        <span class="text-end" style="max-width:60%;">{{ member.address }}</span>
+                    </li>
+                    {% endif %}
+                    {% if member.emergency_contact_name or member.emergency_contact_no %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted"><i class="fa-solid fa-kit-medical fa-fw me-2"></i>Emergency</span>
+                        <span class="text-end">
+                            {{ member.emergency_contact_name or '' }}
+                            {% if member.emergency_contact_no %}({{ member.emergency_contact_no }}){% endif %}
+                        </span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Recent attendance -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-person-walking text-orange me-2"></i>Recent Attendance
+            </div>
+            <div class="card-body p-0">
+                {% if recent_attendance %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr><th>Check-in</th><th>Check-out</th><th>Duration</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for a in recent_attendance %}
+                            <tr>
+                                <td class="small">{{ a.check_in | localdt('%d %b %Y, %H:%M') }}</td>
+                                <td class="small">{{ a.check_out | localdt('%H:%M') if a.check_out else '—' }}</td>
+                                <td class="small text-muted">{{ a.duration_label or '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted small">No attendance records yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Request info + membership -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-circle-info text-orange me-2"></i>Request
+            </div>
+            <div class="card-body" style="font-size:13.5px;">
+                <div class="mb-2">
+                    <span class="text-muted d-block">Trainer</span>
+                    <span class="fw-semibold">{{ req.trainer.full_name }}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted d-block">Requested</span>
+                    {{ req.requested_at | localdt('%d %b %Y, %H:%M') }}
+                </div>
+                {% if req.message %}
+                <div class="mb-2">
+                    <span class="text-muted d-block">Member's Message</span>
+                    <span class="fst-italic">"{{ req.message }}"</span>
+                </div>
+                {% endif %}
+                {% if req.responded_at %}
+                <div class="mb-2">
+                    <span class="text-muted d-block">Responded</span>
+                    {{ req.responded_at | localdt('%d %b %Y, %H:%M') }}
+                    {% if req.responded_by %}by {{ req.responded_by.full_name }}{% endif %}
+                </div>
+                {% endif %}
+                {% if req.response_note %}
+                <div class="mb-2">
+                    <span class="text-muted d-block">Response Note</span>
+                    {{ req.response_note }}
+                </div>
+                {% endif %}
+                {% if req.ended_at %}
+                <div class="mb-0">
+                    <span class="text-muted d-block">Ended</span>
+                    {{ req.ended_at | localdt('%d %b %Y, %H:%M') }}
+                    {% if req.ended_by %}by {{ req.ended_by.full_name }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-id-card text-orange me-2"></i>Membership
+            </div>
+            <div class="card-body" style="font-size:13.5px;">
+                {% if active_membership %}
+                <div class="fw-semibold">{{ active_membership.package.name }}</div>
+                <div class="text-muted">{{ active_membership.package.duration_label }}</div>
+                <div class="mt-2">
+                    <span class="badge bg-{{ active_membership.status_badge_class }}">{{ active_membership.status_label }}</span>
+                    <span class="text-success ms-1">{{ active_membership.days_remaining }} days left</span>
+                </div>
+                <div class="text-muted small mt-2">
+                    {{ active_membership.start_date.strftime('%d %b %Y') }} →
+                    {{ active_membership.end_date.strftime('%d %b %Y') }}
+                </div>
+                {% else %}
+                <span class="text-muted">No active membership.</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if can_act and req.is_pending %}
+<div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('trainer_requests.reject_request', request_id=req.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reject Trainer Request</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Reason (optional)</label>
+                    <textarea name="response_note" class="form-control" rows="3"
+                              placeholder="e.g. Fully booked at the moment, please try another trainer…"></textarea>
+                    <div class="form-text">If provided, the member will see this reason in their notification.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-xmark me-1"></i>Reject &amp; Notify Member
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

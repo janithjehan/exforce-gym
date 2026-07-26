@@ -81,9 +81,9 @@
                             <a href="{{ url_for('members.view_member', member_id=r.member.id) }}"
                                class="fw-semibold text-decoration-none">{{ r.member.full_name }}</a>
                         </td>
-                        <td class="text-muted small">{{ r.check_in.strftime('%d %b %Y, %H:%M') }}</td>
+                        <td class="text-muted small">{{ r.check_in | localdt('%d %b %Y, %H:%M') }}</td>
                         <td class="text-muted small">
-                            {{ r.check_out.strftime('%d %b %Y, %H:%M') if r.check_out else '—' }}
+                            {{ r.check_out | localdt('%d %b %Y, %H:%M') if r.check_out else '—' }}
                         </td>
                         <td class="text-muted small">{{ r.duration_label }}</td>
                         <td>

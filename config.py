@@ -19,6 +19,8 @@ class Config:
     WTF_CSRF_ENABLED = True
     GYM_NAME = 'Exforce Gym'
     TIMEZONE = 'Asia/Colombo'
+    # Max size for any uploaded file (profile photos, equipment images)
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_UPLOAD_MB', 3)) * 1024 * 1024
 
     # PayHere
     PAYHERE_MERCHANT_ID = os.environ.get('PAYHERE_MERCHANT_ID', '')

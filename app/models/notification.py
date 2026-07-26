@@ -7,6 +7,13 @@ class NotificationAudience(enum.Enum):
     ALL_ACTIVE = 'all_active'
     PACKAGE = 'package'
     EXPIRING_SOON = 'expiring_soon'
+    SINGLE_MEMBER = 'single_member'  # system-generated, one specific member (e.g. payment rejection)
+    SINGLE_TRAINER = 'single_trainer'  # system-generated, one specific trainer (e.g. new trainer request)
+    ALL_ADMINS = 'all_admins'
+    ALL_MANAGERS = 'all_managers'
+    ALL_TRAINERS = 'all_trainers'
+    ALL_STAFF = 'all_staff'  # Admin + Manager + Trainer
+    ADMINS_MANAGERS = 'admins_managers'  # Admin + Manager — e.g. new membership requests
 
     @property
     def label(self):
@@ -14,12 +21,20 @@ class NotificationAudience(enum.Enum):
             'all_active': 'All Active Members',
             'package': 'By Package',
             'expiring_soon': 'Expiring Within 30 Days',
+            'single_member': 'Direct Notice',
+            'single_trainer': 'Direct Notice (Trainer)',
+            'all_admins': 'All Admins',
+            'all_managers': 'All Managers',
+            'all_trainers': 'All Trainers',
+            'all_staff': 'All Staff (Admin + Manager + Trainer)',
+            'admins_managers': 'Admins & Managers',
         }[self.value]
 
 
 class Notification(db.Model):
-    """Internal (in-app) announcement sent to members by Admin/Manager,
-    e.g. holiday notices — plus automated expiry reminders."""
+    """Internal (in-app) announcement sent by Admin/Manager to members or
+    staff, e.g. holiday notices — plus automated expiry reminders and
+    system-generated direct notices (e.g. payment rejection)."""
     __tablename__ = 'notifications'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -31,6 +46,10 @@ class Notification(db.Model):
         default=NotificationAudience.ALL_ACTIVE,
     )
     package_id = db.Column(db.Integer, db.ForeignKey('packages.id'), nullable=True)
+
+    # Optional in-app deep link (relative URL) — when set, the recipient's inbox
+    # renders a "View" link, e.g. a membership-request notice → that membership.
+    link_url = db.Column(db.String(255), nullable=True)
 
     is_auto = db.Column(db.Boolean, nullable=False, default=False)  # FR-NOT-03 scheduled reminders
 
@@ -58,24 +77,25 @@ class Notification(db.Model):
 
 
 class NotificationLog(db.Model):
-    """Per-recipient in-app delivery record with read tracking."""
+    """Per-recipient in-app delivery record with read tracking. Recipient is
+    a User — every role (Admin/Manager/Trainer/Member) can receive one."""
     __tablename__ = 'notification_logs'
 
     id = db.Column(db.Integer, primary_key=True)
     notification_id = db.Column(
         db.Integer, db.ForeignKey('notifications.id'), nullable=False
     )
-    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     is_read = db.Column(db.Boolean, nullable=False, default=False)
     read_at = db.Column(db.DateTime, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
-    member = db.relationship(
-        'Member', foreign_keys=[member_id],
+    recipient = db.relationship(
+        'User', foreign_keys=[recipient_id],
         backref=db.backref('notification_logs', lazy='dynamic'),
     )
 
     def __repr__(self):
-        return f'<NotificationLog n={self.notification_id} m={self.member_id} read={self.is_read}>'
+        return f'<NotificationLog n={self.notification_id} u={self.recipient_id} read={self.is_read}>'

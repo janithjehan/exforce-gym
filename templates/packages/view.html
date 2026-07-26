@@ -92,7 +92,7 @@
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Created</dt>
                     <dd class="col-sm-8">
-                        {{ package.created_at.strftime('%d %b %Y, %H:%M') }}
+                        {{ package.created_at | localdt('%d %b %Y, %H:%M') }}
                         {% if package.created_by %}
                         <span class="text-muted">by {{ package.created_by.full_name }}</span>
                         {% endif %}
@@ -100,7 +100,7 @@
 
                     <dt class="col-sm-4">Last Updated</dt>
                     <dd class="col-sm-8">
-                        {{ package.updated_at.strftime('%d %b %Y, %H:%M') }}
+                        {{ package.updated_at | localdt('%d %b %Y, %H:%M') }}
                         {% if package.updated_by %}
                         <span class="text-muted">by {{ package.updated_by.full_name }}</span>
                         {% endif %}

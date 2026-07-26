@@ -47,13 +47,13 @@
                     </li>
                     <li class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Check-In</span>
-                        <span class="fw-semibold">{{ record.check_in.strftime('%d %b %Y, %H:%M') }}</span>
+                        <span class="fw-semibold">{{ record.check_in | localdt('%d %b %Y, %H:%M') }}</span>
                     </li>
                     <li class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Check-Out</span>
                         <span>
                             {% if record.is_checked_out %}
-                            {{ record.check_out.strftime('%d %b %Y, %H:%M') }}
+                            {{ record.check_out | localdt('%d %b %Y, %H:%M') }}
                             {% else %}
                             <span class="badge bg-success bg-opacity-15 text-success">Still In Gym</span>
                             {% endif %}
@@ -87,7 +87,7 @@
                     </li>
                     <li class="d-flex justify-content-between py-2 {% if record.updated_by %}border-bottom{% endif %}">
                         <span class="text-muted">Recorded At</span>
-                        <span class="text-muted small">{{ record.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+                        <span class="text-muted small">{{ record.created_at | localdt('%d %b %Y, %H:%M') }}</span>
                     </li>
                     {% if record.updated_by %}
                     <li class="d-flex justify-content-between py-2">

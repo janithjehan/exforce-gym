@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Configuration</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Configuration</h2>
+        <p>Gym-wide settings shown to members and staff across the app.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-building-columns text-orange me-2"></i>Bank Transfer Details
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Shown to members on the Bank Transfer payment page so they know where to send
+                    their transfer before submitting a reference number.
+                </p>
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-4">
+                        {{ form.bank_transfer_details.label(class='form-label fw-semibold') }}
+                        {{ form.bank_transfer_details(class='form-control' + (' is-invalid' if form.bank_transfer_details.errors else '')) }}
+                        {% for e in form.bank_transfer_details.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    {{ form.submit(class='btn btn-primary') }}
+                </form>
+
+                {% if settings.updated_by %}
+                <p class="text-muted small mt-3 mb-0">
+                    Last updated by {{ settings.updated_by.full_name }} on
+                    {{ settings.updated_at | localdt('%d %b %Y %H:%M') }}.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

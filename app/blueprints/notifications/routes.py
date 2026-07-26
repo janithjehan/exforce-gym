@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from flask import render_template, redirect, url_for, flash, request, abort
+from flask import render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
 
 from app.blueprints.notifications import notifications_bp
@@ -10,7 +10,6 @@ from app.models.notification import (
     Notification, NotificationLog, NotificationAudience,
 )
 from app.models.package import Package
-from app.models.user import UserRole
 from app.utils.decorators import admin_or_manager_required
 
 NOTIFICATIONS_PER_PAGE = 15
@@ -76,9 +75,9 @@ def create_notification():
         if audience != NotificationAudience.PACKAGE:
             package_id = None
 
-        members = resolve_audience(audience, package_id)
-        if not members:
-            flash('No active members match the selected audience. Nothing was sent.', 'warning')
+        recipients = resolve_audience(audience, package_id)
+        if not recipients:
+            flash('No one matches the selected audience. Nothing was sent.', 'warning')
             return render_template(
                 'notifications/create.html', form=form, title='Send Notification',
             )
@@ -93,10 +92,10 @@ def create_notification():
         db.session.add(notification)
         db.session.flush()
 
-        dispatch_notification(notification, members)
+        dispatch_notification(notification, recipients)
         db.session.commit()
 
-        flash(f'Notification sent to {len(members)} member(s).', 'success')
+        flash(f'Notification sent to {len(recipients)} recipient(s).', 'success')
         return redirect(url_for('notifications.view_notification',
                                 notification_id=notification.id))
 
@@ -129,19 +128,13 @@ def view_notification(notification_id):
 @notifications_bp.route('/my-notifications')
 @login_required
 def my_notifications():
-    """Member-facing in-app inbox. Viewing marks everything as read."""
-    if current_user.role != UserRole.MEMBER:
-        abort(403)
-    if not current_user.member_profile:
-        flash('Member profile not found. Please contact staff.', 'danger')
-        return redirect(url_for('dashboard.home'))
-
-    member_id = current_user.member_profile.id
+    """Personal in-app inbox — available to every role. Viewing marks
+    everything as read."""
     page = request.args.get('page', 1, type=int)
 
     logs = (
         NotificationLog.query
-        .filter_by(member_id=member_id)
+        .filter_by(recipient_id=current_user.id)
         .join(Notification, NotificationLog.notification_id == Notification.id)
         .order_by(NotificationLog.created_at.desc())
         .paginate(page=page, per_page=MY_NOTIFICATIONS_PER_PAGE, error_out=False)

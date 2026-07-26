@@ -4,7 +4,7 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Notifications</h2>
-        <p>Share internal announcements with members and review who received them.</p>
+        <p>Share internal announcements with members or staff and review who received them.</p>
     </div>
     <a href="{{ url_for('notifications.create_notification') }}" class="btn btn-primary">
         <i class="fa-solid fa-paper-plane me-2"></i>Send Notification
@@ -28,7 +28,7 @@
     <div class="col-sm-6 col-xl-3">
         <div class="card stat-card p-3">
             <div class="stat-value text-success">{{ stats.members_reached }}</div>
-            <div class="stat-label">Members Reached</div>
+            <div class="stat-label">Recipients Reached</div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
@@ -67,7 +67,7 @@
                         <td class="text-muted small">{{ n.audience_label }}</td>
                         <td class="text-muted small">{{ n.recipient_count }}</td>
                         <td class="text-muted small">
-                            {{ n.sent_at.strftime('%d %b %Y, %H:%M') if n.sent_at else '—' }}
+                            {{ n.sent_at | localdt('%d %b %Y, %H:%M') if n.sent_at else '—' }}
                         </td>
                         <td class="text-end">
                             <a href="{{ url_for('notifications.view_notification', notification_id=n.id) }}"

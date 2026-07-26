@@ -4,7 +4,7 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Payments</h2>
-        <p>All payment records across members.</p>
+        <p>Verified payment records across members.</p>
     </div>
     <a href="{{ url_for('payments.create_payment') }}" class="btn btn-primary">
         <i class="fa-solid fa-plus me-2"></i>Record Payment
@@ -16,7 +16,7 @@
     <div class="col-sm-6 col-xl-3">
         <div class="card stat-card p-3">
             <div class="stat-value">{{ stats.total }}</div>
-            <div class="stat-label">Total Payments</div>
+            <div class="stat-label">Verified Payments</div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
@@ -39,12 +39,42 @@
     </div>
 </div>
 
+{% if stats.pending_verification %}
+<div class="alert alert-warning d-flex align-items-center gap-3 mb-4">
+    <i class="fa-solid fa-triangle-exclamation fa-lg"></i>
+    <div>
+        <strong>{{ stats.pending_verification }}</strong> bank transfer{{ 's' if stats.pending_verification != 1 else '' }}
+        awaiting verification.
+        <a href="{{ url_for('payments.list_payments', status='pending') }}">Review now</a>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
     <!-- Filters -->
     <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0 me-2">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter != 'pending' %}active{% endif %}"
+                   href="{{ url_for('payments.list_payments', search=search, method=method_filter, month=month_filter) }}">Verified</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'pending' %}active{% endif %}"
+                   href="{{ url_for('payments.list_payments', status='pending', search=search, method=method_filter, month=month_filter) }}">
+                    Pending Verification
+                    {% if stats.pending_verification %}<span class="badge bg-warning text-dark ms-1">{{ stats.pending_verification }}</span>{% endif %}
+                </a>
+            </li>
+        </ul>
         <form method="GET" class="d-flex gap-2 flex-wrap align-items-center w-100">
-            <input type="text" name="search" value="{{ search }}" class="form-control form-control-sm"
-                   placeholder="Search member / ref no... (comma-separated)" style="width:230px;">
+            <div class="col-lg-5 col-md-6">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Search member / ref no... (comma-separated)" value="{{ search }}">
+                </div>
+            </div>
+            <input type="hidden" name="status" value="{{ status_filter }}">
             <select name="method" class="form-select form-select-sm" style="width:160px;">
                 <option value="">All Methods</option>
                 {% for m in payment_methods %}
@@ -53,12 +83,13 @@
                 </option>
                 {% endfor %}
             </select>
-            <input type="month" name="month" value="{{ month_filter }}" class="form-control form-control-sm"
-                   style="width:160px;">
-            <button type="submit" class="btn btn-sm btn-outline-secondary">
-                <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="{{ 'month' if month_filter else 'text' }}" name="month" value="{{ month_filter }}"
+                   placeholder="All Months" class="form-control form-control-sm" style="width:160px;"
+                   onfocus="this.type='month'" onblur="if(!this.value){this.type='text'}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter me-1"></i>Filter
             </button>
-            {% if search or method_filter or month_filter %}
+            {% if search or method_filter or month_filter or status_filter %}
             <a href="{{ url_for('payments.list_payments') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
             {% endif %}
         </form>
@@ -77,6 +108,7 @@
                         <th>Date</th>
                         <th>Membership</th>
                         <th>Ref</th>
+                        <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -102,6 +134,9 @@
                             {% else %}—{% endif %}
                         </td>
                         <td class="text-muted small">{{ p.reference_no or '—' }}</td>
+                        <td>
+                            <span class="badge bg-{{ p.status.badge_class }}">{{ p.status.label }}</span>
+                        </td>
                         <td class="text-end">
                             <a href="{{ url_for('payments.view_payment', payment_id=p.id) }}"
                                class="btn btn-sm btn-outline-secondary">View</a>
@@ -117,21 +152,21 @@
             <nav>
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {% if not payments.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('payments.list_payments', page=payments.prev_num, search=search, method=method_filter, month=month_filter) }}">
+                        <a class="page-link" href="{{ url_for('payments.list_payments', page=payments.prev_num, search=search, method=method_filter, month=month_filter, status=status_filter) }}">
                             <i class="fa-solid fa-chevron-left"></i>
                         </a>
                     </li>
                     {% for p in payments.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                         {% if p %}
                         <li class="page-item {% if p == payments.page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('payments.list_payments', page=p, search=search, method=method_filter, month=month_filter) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('payments.list_payments', page=p, search=search, method=method_filter, month=month_filter, status=status_filter) }}">{{ p }}</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
                     {% endfor %}
                     <li class="page-item {% if not payments.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('payments.list_payments', page=payments.next_num, search=search, method=method_filter, month=month_filter) }}">
+                        <a class="page-link" href="{{ url_for('payments.list_payments', page=payments.next_num, search=search, method=method_filter, month=month_filter, status=status_filter) }}">
                             <i class="fa-solid fa-chevron-right"></i>
                         </a>
                     </li>

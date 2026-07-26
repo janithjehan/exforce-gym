@@ -16,9 +16,12 @@ class MembershipStatus(enum.Enum):
     ACTIVE = 'active'
     EXPIRED = 'expired'
     CANCELLED = 'cancelled'
+    PENDING = 'pending'  # awaiting bank transfer verification — not yet active
 
     @property
     def label(self):
+        if self.value == 'pending':
+            return 'Pending Verification'
         return self.value.capitalize()
 
 
@@ -101,6 +104,8 @@ class Membership(db.Model):
     def status_badge_class(self):
         if self.is_currently_active:
             return 'success'
+        if self.status == MembershipStatus.PENDING:
+            return 'warning'
         if self.status == MembershipStatus.CANCELLED:
             return 'secondary'
         return 'danger'

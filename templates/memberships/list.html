@@ -33,6 +33,17 @@
     </div>
 </div>
 
+{% if stats.pending %}
+<div class="alert alert-warning d-flex align-items-center gap-3 mb-4">
+    <i class="fa-solid fa-hourglass-half fa-lg"></i>
+    <div>
+        <strong>{{ stats.pending }}</strong> membership{{ 's' if stats.pending != 1 else '' }} awaiting bank
+        transfer verification.
+        <a href="{{ url_for('memberships.list_memberships', status='pending') }}">Review now</a>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-header d-flex align-items-center gap-3 flex-wrap">
         <!-- Status tabs -->
@@ -48,6 +59,13 @@
             <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'cancelled' %}active{% endif %}"
                    href="{{ url_for('memberships.list_memberships', status='cancelled', search=search) }}">Cancelled</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'pending' %}active{% endif %}"
+                   href="{{ url_for('memberships.list_memberships', status='pending', search=search) }}">
+                    Pending
+                    {% if stats.pending %}<span class="badge bg-warning text-dark ms-1">{{ stats.pending }}</span>{% endif %}
+                </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"

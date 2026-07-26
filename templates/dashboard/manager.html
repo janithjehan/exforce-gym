@@ -75,6 +75,19 @@
             <div class="stat-label">Pending Payroll</div>
         </div>
     </div>
+    <div class="col-xl-2 col-lg-4 col-sm-6">
+        <a href="{{ url_for('reports.profit_report') }}" class="text-decoration-none">
+            <div class="card stat-card p-4">
+                <div class="stat-icon bg-{{ 'success' if stats.net_profit_this_month >= 0 else 'danger' }} bg-opacity-10 mb-3">
+                    <i class="fa-solid fa-chart-line text-{{ 'success' if stats.net_profit_this_month >= 0 else 'danger' }}"></i>
+                </div>
+                <div class="stat-value text-{{ 'success' if stats.net_profit_this_month >= 0 else 'danger' }}" style="font-size:18px;">
+                    LKR {{ '{:,.0f}'.format(stats.net_profit_this_month) }}
+                </div>
+                <div class="stat-label">Net Profit This Month</div>
+            </div>
+        </a>
+    </div>
 </div>
 
 <div class="row g-4">
@@ -103,9 +116,7 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <div class="user-avatar">
-                                    {{ m.user.first_name[0]|upper }}{{ m.user.last_name[0]|upper }}
-                                </div>
+                                {{ avatar(m.user, 'user-avatar') }}
                                 <div>
                                     <div class="fw-semibold" style="font-size:13.5px;">
                                         <a href="{{ url_for('members.view_member', member_id=m.id) }}"

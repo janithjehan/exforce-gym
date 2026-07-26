@@ -23,7 +23,7 @@
                 <i class="fa-solid fa-user-plus text-orange me-2"></i>New User Details
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('users.create_user') }}" novalidate>
+                <form method="POST" action="{{ url_for('users.create_user') }}" enctype="multipart/form-data" novalidate>
                     {{ form.hidden_tag() }}
 
                     <!-- Name -->
@@ -92,6 +92,14 @@
                                 Active account (user can log in immediately)
                             </label>
                         </div>
+                    </div>
+
+                    <!-- Profile Photo -->
+                    <div class="mb-3">
+                        {{ form.photo.label(class='form-label') }}
+                        {{ form.photo(class='form-control' + (' is-invalid' if form.photo.errors else ''), accept='image/*') }}
+                        {% for e in form.photo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        <div class="form-text">Optional. JPG, PNG, GIF or WebP, up to 3 MB.</div>
                     </div>
 
                     <hr>

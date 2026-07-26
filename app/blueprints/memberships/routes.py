@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
-from flask import render_template, redirect, url_for, flash, request
+from datetime import datetime, timedelta, date
+from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import current_user, login_required
 
 from app.blueprints.memberships import memberships_bp
@@ -46,6 +46,8 @@ def list_memberships():
         query = query.filter(Membership.status == MembershipStatus.EXPIRED)
     elif status_filter == 'cancelled':
         query = query.filter(Membership.status == MembershipStatus.CANCELLED)
+    elif status_filter == 'pending':
+        query = query.filter(Membership.status == MembershipStatus.PENDING)
 
     memberships = query.order_by(Membership.start_date.desc()).paginate(
         page=page, per_page=MEMBERSHIPS_PER_PAGE, error_out=False
@@ -64,6 +66,7 @@ def list_memberships():
             Membership.end_date <= today + timedelta(days=30),
         ).count(),
         'expired': Membership.query.filter_by(status=MembershipStatus.EXPIRED).count(),
+        'pending': Membership.query.filter_by(status=MembershipStatus.PENDING).count(),
     }
 
     return render_template(
@@ -90,7 +93,8 @@ def create_membership():
         for p in active_packages
     ]
 
-    # Members dropdown (non-archived)
+    # Members (non-archived) — single query, reused for the datalist options and
+    # for resolving the typed label back to an id.
     members = (
         Member.query
         .join(User, Member.user_id == User.id)
@@ -98,18 +102,28 @@ def create_membership():
         .order_by(User.first_name.asc())
         .all()
     )
-    form.member_id.choices = [(m.id, f'{m.full_name} ({m.email})') for m in members]
+    member_labels = {f'{m.full_name} ({m.email})': m.id for m in members}
+    form.member_id.choices = [(mid, label) for label, mid in member_labels.items()]
 
-    # Pre-select member if passed as query param
-    preselect_member_id = request.args.get('member_id', type=int)
-    if request.method == 'GET' and preselect_member_id:
-        form.member_id.data = preselect_member_id
+    # The member field is a native datalist combobox (type-to-search, no JS). It
+    # submits the typed label, so map it back to the id the SelectField expects.
+    member_label = ''
+    if request.method == 'POST':
+        member_label = request.form.get('member_label', '').strip()
+        form.member_id.data = member_labels.get(member_label)
+    else:
+        preselect_member_id = request.args.get('member_id', type=int)
+        if preselect_member_id:
+            form.member_id.data = preselect_member_id
+            member_label = next(
+                (lbl for lbl, mid in member_labels.items() if mid == preselect_member_id), ''
+            )
 
     if form.validate_on_submit():
         member = Member.query.get_or_404(form.member_id.data)
         package = Package.query.get_or_404(form.package_id.data)
 
-        # FR-MSHIP-02: only one active membership at a time
+        # only one active membership at a time
         from datetime import date
         existing = Membership.query.filter(
             Membership.member_id == member.id,
@@ -124,7 +138,8 @@ def create_membership():
                 'warning',
             )
             return render_template(
-                'memberships/create.html', form=form, title='Assign Membership'
+                'memberships/create.html', form=form, members=members,
+                member_label=member_label, title='Assign Membership',
             )
 
         end_date = Membership.calculate_end_date(form.start_date.data, package.duration_months)
@@ -148,7 +163,53 @@ def create_membership():
         )
         return redirect(url_for('memberships.view_membership', membership_id=membership.id))
 
-    return render_template('memberships/create.html', form=form, title='Assign Membership')
+    return render_template('memberships/create.html', form=form, members=members,
+                           member_label=member_label, title='Assign Membership')
+
+
+@memberships_bp.route('/my-memberships')
+@login_required
+def my_memberships():
+    """Member-facing self-service list of own memberships (current + history)."""
+    if current_user.role != UserRole.MEMBER:
+        return redirect(url_for('dashboard.home'))
+    if not current_user.member_profile:
+        abort(403)
+
+    Membership.expire_passed()  # keep statuses current before displaying
+
+    member = current_user.member_profile
+    page = request.args.get('page', 1, type=int)
+    memberships = member.memberships.paginate(page=page, per_page=10, error_out=False)
+
+    today = date.today()
+    current = (
+        Membership.query
+        .filter(
+            Membership.member_id == member.id,
+            Membership.status == MembershipStatus.ACTIVE,
+            Membership.end_date >= today,
+        )
+        .order_by(Membership.end_date.desc())
+        .first()
+    )
+    pending = (
+        Membership.query
+        .filter(
+            Membership.member_id == member.id,
+            Membership.status == MembershipStatus.PENDING,
+        )
+        .order_by(Membership.created_at.desc())
+        .first()
+    )
+
+    return render_template(
+        'memberships/my_memberships.html',
+        memberships=memberships,
+        current=current,
+        pending=pending,
+        title='My Membership',
+    )
 
 
 @memberships_bp.route('/<int:membership_id>')
@@ -177,7 +238,11 @@ def renew_membership(membership_id):
         flash('Cancelled memberships cannot be renewed.', 'warning')
         return redirect(url_for('memberships.view_membership', membership_id=membership_id))
 
-    # FR-MSHIP-03: extend from current end_date, not today
+    if membership.status == MembershipStatus.PENDING:
+        flash('This membership is awaiting bank transfer verification and cannot be renewed yet.', 'warning')
+        return redirect(url_for('memberships.view_membership', membership_id=membership_id))
+
+    # Extend from current end_date, not today
     from datetime import date
     new_start = membership.end_date + timedelta(days=1)
     new_end = Membership.calculate_end_date(new_start, membership.package.duration_months)
@@ -209,6 +274,17 @@ def cancel_membership(membership_id):
 
     if membership.status == MembershipStatus.CANCELLED:
         flash('Membership is already cancelled.', 'warning')
+        return redirect(url_for('memberships.view_membership', membership_id=membership_id))
+
+    if membership.status == MembershipStatus.PENDING:
+        payment = membership.payments.first()
+        flash(
+            'This membership is awaiting bank transfer verification. '
+            'Reject the payment instead to cancel it.',
+            'warning',
+        )
+        if payment:
+            return redirect(url_for('payments.view_payment', payment_id=payment.id))
         return redirect(url_for('memberships.view_membership', membership_id=membership_id))
 
     membership.status = MembershipStatus.CANCELLED

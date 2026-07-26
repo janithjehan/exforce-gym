@@ -10,6 +10,7 @@ from app.models.member import Member, Gender
 from app.models.trainer import Trainer
 from app.utils.decorators import admin_required, log_activity
 from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.uploads import save_image, delete_image
 from app.utils.validators import clean_nic, parse_nic
 
 USERS_PER_PAGE = 15
@@ -79,6 +80,8 @@ def create_user():
             created_by_id=current_user.id,
         )
         user.set_password(clean_nic(form.nic_no.data))
+        if form.photo.data:
+            user.avatar_filename = save_image(form.photo.data, 'avatars')
         db.session.add(user)
         db.session.flush()  # get user.id
 
@@ -133,7 +136,7 @@ def edit_user(user_id):
         flash('Archived users cannot be edited.', 'warning')
         return redirect(url_for('users.view_user', user_id=user_id))
 
-    form = UserEditForm(user_id=user_id, obj=user)
+    form = UserEditForm(user_id=user_id, current_role=user.role.value, obj=user)
     # Pre-fill role select
     if request.method == 'GET':
         form.role.data = user.role.value
@@ -161,6 +164,13 @@ def edit_user(user_id):
 
         if form.password.data:
             user.set_password(form.password.data)
+
+        if form.photo.data:
+            delete_image(user.avatar_filename, 'avatars')
+            user.avatar_filename = save_image(form.photo.data, 'avatars')
+        elif form.remove_photo.data:
+            delete_image(user.avatar_filename, 'avatars')
+            user.avatar_filename = None
 
         # Role changed to MEMBER/TRAINER: make sure the matching profile exists
         # (same auto-creation as create_user, otherwise member/trainer pages break)

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>My Members</h2>
+        <p>Members currently assigned to you.</p>
+    </div>
+    <a href="{{ url_for('trainer_requests.incoming') }}" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-inbox me-2"></i>Requests
+        {% if trainer_pending_requests %}
+        <span class="badge bg-warning text-dark ms-1">{{ trainer_pending_requests }}</span>
+        {% endif %}
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if assignments %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Contact</th>
+                        <th>Since</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in assignments %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                {{ avatar(r.member.user, 'user-avatar') }}
+                                <div>
+                                    <div class="fw-semibold">{{ r.member.full_name }}</div>
+                                    <div class="text-muted small">{{ r.member.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-muted small">{{ r.member.contact_no or '—' }}</td>
+                        <td class="text-muted small">{{ r.responded_at | localdt('%d %b %Y') }}</td>
+                        <td class="text-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{{ url_for('trainer_requests.view_request', request_id=r.id) }}"
+                                   class="btn btn-sm btn-outline-secondary">Details</a>
+                                <a href="{{ url_for('schedules.create_schedule', member_id=r.member.id) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-calendar-plus me-1"></i>Schedule
+                                </a>
+                                <form method="POST" action="{{ url_for('trainer_requests.remove_member', request_id=r.id) }}"
+                                      onsubmit="return confirm('Remove {{ r.member.full_name }} from your members?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-users fa-2x mb-3 d-block"></i>
+            You have no assigned members yet. Accepted requests will appear here.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

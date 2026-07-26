@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Profit Report</h2>
+        <p>Income from payments minus paid staff payroll and logged expenses for the selected period.</p>
+    </div>
+</div>
+
+<!-- Date range filter -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-sm-4 col-lg-3">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">From</label>
+                <input type="date" name="start_date" value="{{ start_date.isoformat() }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-sm-4 col-lg-3">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">To</label>
+                <input type="date" name="end_date" value="{{ end_date.isoformat() }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter me-1"></i>Apply
+                </button>
+                <a href="{{ url_for('reports.profit_report') }}" class="btn btn-outline-secondary btn-sm">
+                    This Month
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">LKR {{ '{:,.2f}'.format(income_total) }}</div>
+            <div class="stat-label">Total Income</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-danger">LKR {{ '{:,.2f}'.format(expense_total) }}</div>
+            <div class="stat-label">Total Expenses</div>
+            <div class="text-muted" style="font-size:11px;">
+                Payroll LKR {{ '{:,.0f}'.format(payroll_expense_total) }} + Other LKR {{ '{:,.0f}'.format(other_expense_total) }}
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value {% if net_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                LKR {{ '{:,.2f}'.format(net_profit) }}
+            </div>
+            <div class="stat-label">Net Profit</div>
+        </div>
+    </div>
+</div>
+
+<div class="text-muted small mb-4">
+    <i class="fa-solid fa-circle-info me-1"></i>
+    Showing {{ start_date.strftime('%d %b %Y') }} &ndash; {{ end_date.strftime('%d %b %Y') }}.
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Income by Method</strong></div>
+            <div class="card-body p-0">
+                {% if income_by_method %}
+                <table class="table mb-0">
+                    <tbody>
+                        {% for method, amount in income_by_method.items() %}
+                        <tr>
+                            <td><span class="badge bg-{{ method.badge_class }}">{{ method.label }}</span></td>
+                            <td class="text-end">LKR {{ '{:,.2f}'.format(amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">No payments in this range.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Payroll by Staff Role</strong></div>
+            <div class="card-body p-0">
+                {% if expense_by_role %}
+                <table class="table mb-0">
+                    <tbody>
+                        {% for role, amount in expense_by_role.items() %}
+                        <tr>
+                            <td>{{ role.label }}</td>
+                            <td class="text-end">LKR {{ '{:,.2f}'.format(amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">No paid payroll in this range.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <strong>Other Expenses by Category</strong>
+                <a href="{{ url_for('expenses.list_expenses') }}" class="btn btn-sm btn-outline-secondary float-end">
+                    View All
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if expense_by_category %}
+                <table class="table mb-0">
+                    <tbody>
+                        {% for category, amount in expense_by_category.items() %}
+                        <tr>
+                            <td><span class="badge bg-{{ category.badge_class }}">{{ category.label }}</span></td>
+                            <td class="text-end">LKR {{ '{:,.2f}'.format(amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">No other expenses logged in this range.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

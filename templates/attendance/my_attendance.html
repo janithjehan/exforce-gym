@@ -27,8 +27,8 @@
                     {% for r in records.items %}
                     <tr>
                         <td class="fw-semibold small">{{ r.check_in.strftime('%d %b %Y') }}</td>
-                        <td class="text-muted small">{{ r.check_in.strftime('%H:%M') }}</td>
-                        <td class="text-muted small">{{ r.check_out.strftime('%H:%M') if r.check_out else '—' }}</td>
+                        <td class="text-muted small">{{ r.check_in | localdt('%H:%M') }}</td>
+                        <td class="text-muted small">{{ r.check_out | localdt('%H:%M') if r.check_out else '—' }}</td>
                         <td class="text-muted small">{{ r.duration_label }}</td>
                         <td>
                             {% if r.is_checked_out %}

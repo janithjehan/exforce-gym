@@ -78,13 +78,14 @@ def list_workouts():
 @admin_or_trainer_required
 def create_workout():
     form = WorkoutForm()
+    form.load_equipment_choices()
     if form.validate_on_submit():
         workout = Workout(
             name=form.name.data.strip(),
             workout_type=WorkoutType(form.workout_type.data),
             muscle_group=MuscleGroup(form.muscle_group.data),
             difficulty=DifficultyLevel(form.difficulty.data),
-            equipment_needed=form.equipment_needed.data.strip() or None,
+            equipment_needed=form.equipment_needed.data or None,
             instructions=form.instructions.data.strip() or None,
             is_active=True,
             created_by_id=current_user.id,
@@ -114,13 +115,14 @@ def edit_workout(workout_id):
         return redirect(url_for('workouts.view_workout', workout_id=workout_id))
 
     form = WorkoutForm()
+    form.load_equipment_choices(current=workout.equipment_needed)
 
     if request.method == 'GET':
         form.name.data = workout.name
         form.workout_type.data = workout.workout_type.value
         form.muscle_group.data = workout.muscle_group.value
         form.difficulty.data = workout.difficulty.value
-        form.equipment_needed.data = workout.equipment_needed
+        form.equipment_needed.data = workout.equipment_needed or ''
         form.instructions.data = workout.instructions
 
     if form.validate_on_submit():
@@ -128,7 +130,7 @@ def edit_workout(workout_id):
         workout.workout_type = WorkoutType(form.workout_type.data)
         workout.muscle_group = MuscleGroup(form.muscle_group.data)
         workout.difficulty = DifficultyLevel(form.difficulty.data)
-        workout.equipment_needed = form.equipment_needed.data.strip() or None
+        workout.equipment_needed = form.equipment_needed.data or None
         workout.instructions = form.instructions.data.strip() or None
         workout.updated_by_id = current_user.id
         workout.updated_at = datetime.utcnow()

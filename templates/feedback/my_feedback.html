@@ -40,7 +40,7 @@
                             <span class="badge bg-info bg-opacity-15 text-info"><i class="fa-solid fa-reply me-1"></i>Responded</span>
                             {% endif %}
                         </div>
-                        <div class="text-muted small mb-1">{{ r.created_at.strftime('%d %b %Y %H:%M') }}</div>
+                        <div class="text-muted small mb-1">{{ r.created_at | localdt('%d %b %Y %H:%M') }}</div>
                         <div style="font-size:13.5px;">{{ r.comments | truncate(120) }}</div>
                     </div>
                     <a href="{{ url_for('feedback.view_feedback', feedback_id=r.id) }}"

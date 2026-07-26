@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, TextAreaField, SubmitField
-from wtforms.validators import DataRequired, Length, ValidationError
+from wtforms.validators import DataRequired, Length, Optional, ValidationError
 
 from app.models.workout import Workout, WorkoutType, MuscleGroup, DifficultyLevel
 
@@ -22,10 +22,10 @@ class WorkoutForm(FlaskForm):
         choices=[(d.value, d.label) for d in DifficultyLevel],
         validators=[DataRequired()],
     )
-    equipment_needed = StringField(
+    equipment_needed = SelectField(
         'Equipment Needed',
-        validators=[Length(max=200)],
-        render_kw={'placeholder': 'e.g. Barbell, Bench — leave empty for bodyweight'},
+        choices=[],
+        validators=[Optional()],
     )
     instructions = TextAreaField(
         'Instructions',
@@ -45,3 +45,18 @@ class WorkoutForm(FlaskForm):
             query = query.filter(Workout.id != workout_id)
         if query.first():
             raise ValidationError('A workout with this name already exists.')
+
+    def load_equipment_choices(self, current=None):
+        """Populate the equipment dropdown from the active inventory.
+
+        `current` keeps a legacy free-text value (not in the inventory) as a
+        selectable option so editing an old workout never silently drops it.
+        """
+        from app.models.equipment import Equipment
+        items = Equipment.query.filter_by(is_archived=False).order_by(Equipment.name.asc()).all()
+        choices = [('', 'None (bodyweight)')]
+        choices += [(e.name, e.name) for e in items]
+        names = {e.name for e in items}
+        if current and current not in names:
+            choices.append((current, f'{current} (not in inventory)'))
+        self.equipment_needed.choices = choices

@@ -45,6 +45,26 @@
                         <i class="fa-solid fa-plus me-2"></i>Get Another Plan
                     </a>
                 </div>
+                {% elif pending_membership %}
+                {% set pending_payment = pending_membership.payments.first() %}
+                <div class="text-center py-4">
+                    <i class="fa-solid fa-hourglass-half fa-2x text-warning mb-2 d-block"></i>
+                    <p class="mb-1">
+                        Your bank transfer for <strong>{{ pending_membership.package.name }}</strong>
+                        is awaiting verification by staff.
+                    </p>
+                    <p class="text-muted small mb-2">You'll be notified once your membership is activated.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="{{ url_for('memberships.view_membership', membership_id=pending_membership.id) }}"
+                           class="btn btn-outline-secondary btn-sm">View status</a>
+                        {% if pending_payment %}
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#cancelRequestModal">
+                            <i class="fa-solid fa-ban me-1"></i>Cancel Request
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
                 {% else %}
                 <div class="text-center py-4">
                     <i class="fa-solid fa-circle-xmark fa-2x text-muted mb-2 d-block"></i>
@@ -75,9 +95,9 @@
                             <div>
                                 <div class="fw-semibold">{{ r.check_in.strftime('%d %b %Y') }}</div>
                                 <div class="text-muted small">
-                                    {{ r.check_in.strftime('%H:%M') }}
+                                    {{ r.check_in | localdt('%H:%M') }}
                                     {% if r.check_out %}
-                                    → {{ r.check_out.strftime('%H:%M') }}
+                                    → {{ r.check_out | localdt('%H:%M') }}
                                     &nbsp;<span class="text-muted">({{ r.duration_label }})</span>
                                     {% endif %}
                                 </div>
@@ -139,9 +159,7 @@
                 <i class="fa-solid fa-circle-user text-orange me-2"></i>My Profile
             </div>
             <div class="card-body text-center pt-4">
-                <div class="user-avatar user-avatar-lg mx-auto mb-3">
-                    {{ current_user.first_name[0] | upper }}{{ current_user.last_name[0] | upper }}
-                </div>
+                {{ avatar(current_user, 'user-avatar user-avatar-lg mx-auto mb-3') }}
                 <div class="fw-bold" style="font-size:16px;">{{ current_user.full_name }}</div>
                 <div class="text-muted mb-1" style="font-size:13px;">@{{ current_user.username }}</div>
                 {% if current_user.email %}
@@ -161,4 +179,37 @@
         </div>
     </div>
 </div>
+
+{% if pending_membership %}
+{% set pending_payment = pending_membership.payments.first() %}
+{% if pending_payment %}
+<div class="modal fade" id="cancelRequestModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Membership Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Cancel your request for <strong>{{ pending_membership.package.name }}</strong>?
+                    Your bank transfer submission (Ref:
+                    <span class="font-monospace">{{ pending_payment.reference_no or '—' }}</span>)
+                    will be withdrawn. You can submit a new one anytime.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep Request</button>
+                <form method="POST" action="{{ url_for('payments.cancel_request', payment_id=pending_payment.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-ban me-1"></i>Yes, Cancel Request
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}

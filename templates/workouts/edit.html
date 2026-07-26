@@ -50,9 +50,9 @@
 
                     <div class="mb-3">
                         {{ form.equipment_needed.label(class='form-label') }}
-                        {{ form.equipment_needed(class='form-control' + (' is-invalid' if form.equipment_needed.errors else '')) }}
+                        {{ form.equipment_needed(class='form-select' + (' is-invalid' if form.equipment_needed.errors else '')) }}
                         {% for e in form.equipment_needed.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                        <div class="form-text">Leave empty for bodyweight exercises.</div>
+                        <div class="form-text">Choose from the equipment inventory, or "None" for bodyweight exercises.</div>
                     </div>
 
                     <div class="mb-4">

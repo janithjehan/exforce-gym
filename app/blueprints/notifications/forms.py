@@ -20,6 +20,10 @@ class NotificationCreateForm(FlaskForm):
             ('all_active', 'All Active Members'),
             ('package', 'Members on a Specific Package'),
             ('expiring_soon', 'Memberships Expiring Within 30 Days'),
+            ('all_admins', 'All Admins'),
+            ('all_managers', 'All Managers'),
+            ('all_trainers', 'All Trainers'),
+            ('all_staff', 'All Staff (Admin + Manager + Trainer)'),
         ],
         validators=[DataRequired()],
     )

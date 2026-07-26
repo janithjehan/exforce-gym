@@ -66,6 +66,13 @@ def admin():
         'new_feedback': Feedback.query.filter_by(status=FeedbackStatus.NEW).count(),
         'pending_payroll': Payroll.query.filter_by(status=PayrollStatus.PENDING).count(),
     }
+    paid_payroll_this_month = db.session.query(
+        db.func.sum(Payroll.gross_amount + Payroll.bonus - Payroll.deductions)
+    ).filter(
+        Payroll.status == PayrollStatus.PAID,
+        Payroll.payment_date >= date(today.year, today.month, 1),
+    ).scalar() or 0
+    stats['net_profit_this_month'] = stats['revenue_this_month'] - paid_payroll_this_month
     recent_members = (
         Member.query
         .join(User, Member.user_id == User.id)
@@ -135,6 +142,13 @@ def manager():
         ).count(),
         'pending_payroll': Payroll.query.filter_by(status=PayrollStatus.PENDING).count(),
     }
+    paid_payroll_this_month = db.session.query(
+        db.func.sum(Payroll.gross_amount + Payroll.bonus - Payroll.deductions)
+    ).filter(
+        Payroll.status == PayrollStatus.PAID,
+        Payroll.payment_date >= date(today.year, today.month, 1),
+    ).scalar() or 0
+    stats['net_profit_this_month'] = stats['revenue_this_month'] - paid_payroll_this_month
     recent_members = (
         Member.query
         .join(User, Member.user_id == User.id)
@@ -171,6 +185,7 @@ def member():
         return redirect(url_for('dashboard.home'))
 
     membership = None
+    pending_membership = None
     recent_attendance = []
     latest_measurement = None
     if current_user.member_profile:
@@ -183,6 +198,15 @@ def member():
                 Membership.end_date >= today,
             )
             .order_by(Membership.end_date.desc())
+            .first()
+        )
+        pending_membership = (
+            Membership.query
+            .filter(
+                Membership.member_id == current_user.member_profile.id,
+                Membership.status == MembershipStatus.PENDING,
+            )
+            .order_by(Membership.created_at.desc())
             .first()
         )
         recent_attendance = (
@@ -203,6 +227,7 @@ def member():
     return render_template(
         'dashboard/member.html',
         membership=membership,
+        pending_membership=pending_membership,
         recent_attendance=recent_attendance,
         latest_measurement=latest_measurement,
         title='Member Dashboard',

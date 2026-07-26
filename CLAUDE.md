@@ -674,5 +674,226 @@ Payslip PDF export (reportlab already a dependency, Schedule module has a copyab
 
 ---
 
+## Configuration Module + Bank Transfer Payments (Added 2026-07-23)
+
+### Design decision
+Bank transfers are held for verification, not trusted on submission — a member enters a reference number, but the Membership only activates once Admin/Manager confirms the transfer actually landed. This matches how the rest of the app treats staff-confirmed state changes (e.g. Payroll's PENDING → mark-paid) rather than PayHere's instant-trust callback model, since anyone could type a fake reference number.
+
+### Configuration Module (app/models/configuration.py, /configuration blueprint) — Admin only
+- `AppConfiguration` — singleton settings row (`AppConfiguration.get()` creates it on first access if missing). Currently holds one field: `bank_transfer_details` (free-text, shown verbatim with `white-space:pre-line`).
+- `GET/POST /configuration/` — single edit page, no list (it's a singleton). Sidebar entry under Admin → Administration, right after Expenses.
+- Deliberately DB-backed (editable in-app) rather than `.env`-based like the PayHere/NIC/mail config keys, so gym staff can update bank details themselves without a deploy/restart.
+
+### Payment model changes (app/models/payment.py)
+- New `PaymentStatus` enum: PENDING / VERIFIED / REJECTED (badge_class: warning/success/danger). Column `status` defaults to **VERIFIED** — every existing payment path (staff-entered CASH/CARD/BANK_TRANSFER via `/payments/create`, PayHere's `/notify`) is unaffected and stays implicitly "final" the moment it's created. Only the new member-facing bank-transfer submission explicitly sets `PENDING`.
+- New `verified_by_id` / `verified_at` — stamped by whichever of `verify_payment`/`reject_payment` resolves the record (both set these fields regardless of outcome).
+- Revenue stats in `/payments` list (`total_revenue`, `this_month_revenue`) now filter `status == VERIFIED` — a pending bank transfer no longer inflates reported revenue until confirmed.
+
+### Membership model changes (app/models/membership.py)
+- New `MembershipStatus.PENDING` ("Pending Verification", badge_class warning) — a Membership row is created immediately alongside the PENDING Payment (holds the intended package/start/end dates), but grants no access: `is_currently_active` stays False until the status flips to ACTIVE.
+- Renew/Cancel (both the routes and the `view.html` buttons) are blocked while a membership is PENDING — resolving it goes through the linked Payment's Verify/Reject instead, not the membership's own actions, to keep Payment/Membership status in lock-step. `cancel_membership` redirects to the payment view with an explanatory flash if someone tries anyway.
+
+### Member flow (app/blueprints/payments/routes.py)
+- `buy.html` now offers two buttons once a package + date are chosen: "Pay Online with PayHere" (existing) and "Pay by Bank Transfer" (new) — both wired by the same `updateSummary()` JS that already builds the PayHere checkout URL.
+- `GET/POST /payments/bank-transfer?package_id=&start_date=` — re-validates package/date exactly like `payhere_checkout` (shared via `_validate_package_and_date()`), shows the configured bank details + a reference-number form (`BankTransferSubmitForm`: reference_no required, notes optional). On submit, creates the PENDING Membership + PENDING Payment atomically (`db.session.flush()` between them, same pattern as PayHere's `/notify`), amount = package price, method=BANK_TRANSFER.
+- **Duplicate-submission guard**: both `/payments/buy`'s "already has a plan" logic and `payhere_checkout`/`bank_transfer` check for an existing PENDING membership for the member and block/redirect to it — a member can't stack multiple unresolved bank-transfer submissions.
+- Member dashboard (`dashboard/member.html`) and `buy.html` both surface an "awaiting verification" notice when a PENDING membership exists, linking to `/memberships/<id>`.
+
+### Staff verification (app/blueprints/payments/routes.py) — Admin+Manager
+- `POST /payments/<id>/verify` — only valid for `method=BANK_TRANSFER` + `status=PENDING`; flips Payment to VERIFIED and the linked Membership to ACTIVE in the same commit, then fires the existing `send_payment_confirmation` SMS (same as any other payment).
+- `POST /payments/<id>/reject` — same guard; **requires a non-empty `rejection_reason`** (form field, validated server-side — a modal-only `required` attribute isn't trusted). Stores it on `Payment.rejection_reason`, flips Payment to REJECTED and the linked Membership to CANCELLED, then calls `_notify_member_of_rejection()` to send the member an in-app notice quoting the reason (see below). No SMS — SMS stays payment-confirmation-only per the existing design note.
+- Verify/Reject actions are surfaced in **two** places, both needed: `payments/view.html` (via `payment.is_pending_verification`) and — since staff normally land on the *membership* page first, not the payment page — `memberships/view.html` (via a `pending_payment = membership.payments.first()` lookup computed once at the top of the template). Reject opens a Bootstrap modal (`#rejectPaymentModal`, Bootstrap JS already loaded in `base.html`) with a required textarea instead of a bare `confirm()`, since the reason has to be typed, not just confirmed.
+- `payments/list.html` and `memberships/list.html` both gained a "Pending" tab + count badge, with an alert banner linking to it when the count is non-zero.
+- **Payments list default = VERIFIED only (Added 2026-07-25):** `list_payments` filters `status == VERIFIED` on the default tab (`status != 'pending'`); the "All" tab was renamed **"Verified"**. The "Pending" tab still shows PENDING for the verification queue; REJECTED payments are not listed anywhere (reachable only by direct `/payments/<id>` URL). The `total` and `this_month` count stats were also narrowed to VERIFIED so the headline numbers match the list (revenue stats were already VERIFIED-only).
+
+### Rejection notice → member (`_notify_member_of_rejection()` in app/blueprints/payments/routes.py)
+- Reuses the existing in-app Notifications system (`app/blueprints/notifications/service.py: dispatch_notification()`) rather than building a new channel — `dispatch_notification()` only ever iterates whatever `members` iterable it's given, so passing `[payment.member]` targets exactly one member without touching `resolve_audience()`.
+- Added `NotificationAudience.SINGLE_MEMBER` ("Direct Notice") for this system-generated case. The manual notification-create form (`notifications/forms.py: NotificationCreateForm.audience`) uses a **hardcoded** choices list (not `[(a.value, a.label) for a in NotificationAudience]`), so this new enum value does not appear as a selectable option in the admin's "Send Notification" form — it's only ever set programmatically.
+- The Notification's `message` embeds the reference no., package name, and the admin's typed reason; shows up in the member's `/notifications/my-notifications` inbox exactly like any other announcement (unread badge etc.).
+
+### DB note (manual, no migration framework in this project — see "no Alembic" precedent from the MANAGER enum / nic_no fixes)
+Applied directly against the dev DB after adding the model fields:
+```sql
+ALTER TABLE payments ADD COLUMN status paymentstatus NOT NULL DEFAULT 'VERIFIED';
+ALTER TABLE payments ADD COLUMN verified_by_id INTEGER REFERENCES users(id);
+ALTER TABLE payments ADD COLUMN verified_at TIMESTAMP;
+ALTER TABLE payments ADD COLUMN rejection_reason TEXT;
+ALTER TYPE membershipstatus ADD VALUE 'PENDING';        -- must run outside an explicit transaction block
+ALTER TYPE notificationaudience ADD VALUE 'SINGLE_MEMBER';  -- same
+```
+`app_configuration` is a brand-new table, so `flask create-tables` (`db.create_all()`) picked it up without any manual DDL — same as any other new module's first deploy.
+
+---
+
+## Notifications — Extended to All Roles + Topbar Bell (Added 2026-07-24)
+
+### Design change
+The Notifications module originally only delivered to Members (`NotificationLog.member_id` was a FK to `members`; Admin/Manager only ever composed broadcasts, Trainer had zero access). Recipients are now **Users**, so every role — Admin, Manager, Trainer, Member — can receive a notification and has a personal inbox + unread count.
+
+### Model (app/models/notification.py)
+- `NotificationLog.member_id` (FK `members.id`) → `NotificationLog.recipient_id` (FK `users.id`), relationship renamed `member` → `recipient` (backref `User.notification_logs`).
+- `NotificationAudience` gained four staff values: `ALL_ADMINS`, `ALL_MANAGERS`, `ALL_TRAINERS`, `ALL_STAFF` (Admin+Manager+Trainer) — alongside the existing member-oriented ones (`ALL_ACTIVE`, `PACKAGE`, `EXPIRING_SOON`, `SINGLE_MEMBER`).
+
+### Service (app/blueprints/notifications/service.py)
+- `resolve_audience()` now **always returns a list of `User` objects**, regardless of audience type: staff audiences query `User` directly by role (active, non-archived); member audiences run the original Member/Membership query then map each result to `.user`. This keeps `dispatch_notification()` and `send_expiry_reminders()` uniform — they only ever deal in `User.id`.
+- `dispatch_notification(notification, users)` — param renamed `members`→`users`; writes `recipient_id=user.id`.
+
+### Routes (app/blueprints/notifications/routes.py)
+- `my_notifications` (`GET /notifications/my-notifications`) — the Member-only gate (`role != MEMBER` → 403, requires `member_profile`) was removed. Any authenticated role now gets their own inbox filtered by `recipient_id == current_user.id`. `list_notifications`/`create_notification`/`view_notification` stay `@admin_or_manager_required` (composing/managing broadcasts is unchanged).
+- `_notify_member_of_rejection()` (app/blueprints/payments/routes.py) — updated to pass `payment.member.user` instead of `payment.member`, matching the new User-based `dispatch_notification` signature.
+
+### Forms/templates
+- `NotificationCreateForm.audience` choices gained the four staff options (`notifications/forms.py`) — form choices are a hardcoded list, not an enum-iteration, so this is the only place staff audiences need to be added for the compose UI.
+- `notifications/view.html` delivery log: recipient cell now checks `log.recipient.member_profile` — links to `members.view_member` for member recipients, otherwise shows the name + a role badge (staff recipients have no Member profile to link to).
+- `notifications/my.html` needed no changes (already recipient-agnostic, only reads `log.notification.*`).
+
+### Sidebar + topbar bell (templates/base.html)
+- Admin and Manager sections each gained a second nav-item, **"My Notifications"** (unread badge), alongside their existing "Notifications" (compose/manage) link — the two are disambiguated by exact-endpoint active-state checks (`request.endpoint in (...)` for the manage list vs. `== 'notifications.my_notifications'` for the inbox), same pattern as Payroll's list vs. my-payroll links.
+- Trainer section gained a "Notifications" nav-item (previously had none at all).
+- **Topbar bell** — a bell icon + unread-count badge sits in `#topbar .topbar-right`, immediately before the user avatar/dropdown, visible to **every** authenticated role. Always links to `notifications.my_notifications` (the personal inbox), regardless of role.
+- `inject_unread_notifications()` context processor (`app/__init__.py`) generalized from `member_profile`-gated to `NotificationLog.filter_by(recipient_id=current_user.id, is_read=False)` for any authenticated user — this single count now drives both the sidebar badges and the topbar bell badge.
+
+### DB migration (manual — no Alembic in this project)
+Existing `notification_logs` data (recipients were Member rows) was backfilled, not dropped:
+```sql
+ALTER TABLE notification_logs ADD COLUMN recipient_id INTEGER;
+UPDATE notification_logs nl SET recipient_id = m.user_id
+    FROM members m WHERE nl.member_id = m.id;
+ALTER TABLE notification_logs ALTER COLUMN recipient_id SET NOT NULL;
+ALTER TABLE notification_logs ADD CONSTRAINT notification_logs_recipient_id_fkey
+    FOREIGN KEY (recipient_id) REFERENCES users(id);
+ALTER TABLE notification_logs DROP COLUMN member_id;
+ALTER TYPE notificationaudience ADD VALUE 'ALL_ADMINS';
+ALTER TYPE notificationaudience ADD VALUE 'ALL_MANAGERS';
+ALTER TYPE notificationaudience ADD VALUE 'ALL_TRAINERS';
+ALTER TYPE notificationaudience ADD VALUE 'ALL_STAFF';
+```
+
+---
+
+## Membership Request → Staff Notification (Added 2026-07-24)
+
+### Behavior
+When a member submits a bank-transfer membership request (`POST /payments/bank-transfer` → creates the PENDING Membership + PENDING Payment), an in-app notification is fired to **every active Admin and Manager**. It surfaces in each staff member's topbar bell (unread badge) and `/notifications/my-notifications` inbox exactly like any other notification — no template changes were needed, since the bell already renders `unread_notifications` for any authenticated user.
+
+### Implementation
+- New `NotificationAudience.ADMINS_MANAGERS` ('admins_managers', label "Admins & Managers") — the same role set as `admin_or_manager_required`. Added to `STAFF_ROLES_BY_AUDIENCE` in `notifications/service.py`, so `resolve_audience()` handles it as a first-class staff audience. **Not** added to `NotificationCreateForm.audience`'s hardcoded choices — it's only ever set programmatically, same as `SINGLE_MEMBER`.
+- `_notify_staff_of_membership_request(membership, payment)` in `payments/routes.py` (mirrors `_notify_member_of_rejection`): builds a Notification (`is_auto=False` — a member triggered it, not the scheduler; `created_by_id = requesting member's user`, message quotes member name / package / amount / reference / period), then `dispatch_notification()` to the resolved Admin+Manager users and commits. Called from `bank_transfer()` right after the membership+payment commit.
+- Only the bank-transfer flow notifies — PayHere purchases create an instant ACTIVE membership (a completed purchase, not a pending request awaiting staff action), so they don't fire this.
+- **`is_auto` is reserved for the scheduled expiry-reminder job only.** All person-triggered notices (membership request, request cancellation, payment rejection) are `is_auto=False`, so they don't inflate the "Auto reminders" stat (`notifications/routes.py`) and don't count toward the 30-day "already reminded" dedup in `send_expiry_reminders()` — meaning a rejected member is no longer wrongly skipped from expiry reminders.
+
+### Deep link from the notification (Added 2026-07-25)
+- `Notification.link_url` (String 255, nullable) — an optional relative in-app URL. When set, the recipient's inbox (`notifications/my.html`) renders a "View request" button under the message.
+- `_notify_staff_of_membership_request` sets `link_url=url_for('memberships.view_membership', membership_id=membership.id)` so an Admin/Manager can jump straight from the bell/inbox to the pending membership (where the Verify/Reject actions live). `url_for` is safe here — the helper runs inside the `bank_transfer` request context.
+- Generic column, reusable by any future notification that wants a deep link; unset (`None`) notifications render as before (no button).
+
+### DB migration (manual — no Alembic)
+```sql
+ALTER TYPE notificationaudience ADD VALUE IF NOT EXISTS 'ADMINS_MANAGERS';  -- outside a txn block
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link_url VARCHAR(255);
+```
+
+### Member self-cancel of a pending request (Added 2026-07-24)
+- `POST /payments/<id>/cancel-request` (`payments/routes.py: cancel_request`) — member-facing, member-role + owner-guarded, only valid while the payment is `BANK_TRANSFER` + `PENDING` (i.e. before staff verify/reject). Flips the Payment → REJECTED (`rejection_reason='Cancelled by the member before verification.'`) and the linked Membership → CANCELLED in one commit, then redirects to `/payments/buy` so they can submit a fresh request. Lives next to `verify_payment`/`reject_payment` since all three resolve the same PENDING payment.
+- No new `PaymentStatus` value — reuses REJECTED (with a distinguishing reason) so the withdrawn request drops out of staff's Pending queue exactly like a staff rejection; `verified_by_id` stays null (member-initiated, not staff-resolved).
+- `_notify_staff_of_request_cancellation(payment)` fires an ADMINS_MANAGERS in-app notice so the earlier "New Membership Request" bell alert doesn't go stale.
+- "Cancel Request" button surfaced on all three member-facing pending surfaces: `memberships/view.html` (member section, when `pending_payment` set), `payments/buy.html` (pending banner), `dashboard/member.html` (pending notice) — each a POST form with a confirm() guard, resolving the payment via `pending_membership.payments.first()`.
+
+---
+
+## Timezone Handling — Local Display (Added 2026-07-24)
+
+### Problem
+Timestamps are stored as naive UTC (`datetime.utcnow()` everywhere — correct), but templates rendered that UTC value directly, so times showed ~5h30m behind Sri Lanka wall-clock (e.g. a notification created at 16:06 local displayed as 10:36).
+
+### Fix — store UTC, display local (Asia/Colombo, UTC+5:30)
+- `app/utils/timezones.py`:
+  - `to_local(dt)` — naive-UTC → aware local (display). `to_utc(dt)` — naive-local → naive-UTC (form input → storage). `now_local()`.
+  - Resolves `Asia/Colombo` via `zoneinfo` (tzdata present), falls back to a fixed `timezone(+05:30)` if the IANA db is missing (SL has no DST).
+- `app/__init__.py` registers a Jinja filter **`localdt`**: `{{ dt | localdt }}` (default `'%d %b %Y, %H:%M'`) or `{{ dt | localdt('%H:%M') }}`. Returns `''` for None.
+- **Convention going forward:** any **datetime** displayed in a template must go through `| localdt('...')`, never `.strftime(...)`. **Date-only** fields (`payment_date`, `start_date`, `end_date`, `join_date`, `date_of_birth`, `measured_on`, `pay_period`) are plain `date` objects with no tz component — keep using `.strftime()` on those.
+- Swept all 42 existing time-bearing datetime displays (created_at/updated_at/sent_at/read_at/verified_at/responded_at/check_in/check_out/last_login/timestamp) across 22 templates from `.strftime` → `| localdt`. Date-only `.strftime` calls were deliberately left alone.
+
+### Attendance form input (the one round-trip case)
+`attendance/create.html` check-in/out use `<input type="datetime-local">` — staff type **local** time. `create_attendance` now wraps both in `to_utc(...)` before persisting, so manual entries are stored UTC like `checkout` (which already used `utcnow()`) and render back correctly via `localdt`. The form prefill (only shown on validation-error re-render) stays raw `.strftime` — it's the just-typed local value, not a stored UTC one.
+
+### Caveat
+Any attendance rows created manually **before** this fix were stored as local-as-typed (not UTC); they'll now display +5:30 off. New rows are correct. All `utcnow()`-based fields (notifications, payments, audit logs, etc.) were always UTC, so they're simply correct now.
+
+---
+
+## Member "My Membership" page (Added 2026-07-25)
+
+Members previously could only see their membership on the dashboard. Added a dedicated self-service page mirroring the `my-attendance`/`my-schedules`/`my-notifications` pattern.
+- `GET /memberships/my-memberships` (`memberships/routes.py: my_memberships`) — MEMBER-only (non-members redirect to `dashboard.home`, 403 if no `member_profile`). Runs `Membership.expire_passed()` first, then paginates `member.memberships` (10/page, already ordered start_date desc) and computes `current` (ACTIVE + not expired) and `pending` (PENDING) for the top summary card.
+- `templates/memberships/my_memberships.html` — top card shows the active plan (days remaining, dates) / a pending "awaiting verification" banner / or a "no plan" CTA, followed by a paginated history table (package, period, status badge, View → `view_membership`).
+- Sidebar: "My Membership" nav-item added to the member section (`base.html`, after My Profile, icon `fa-id-card`, active on any `memberships.*` endpoint — safe since members only reach `my_memberships`/`view_membership`).
+- `memberships/view.html` breadcrumb gained a member branch linking back to `my_memberships`.
+
+---
+
+## User Profile Photos (Added 2026-07-25)
+
+Every user (Admin/Manager/Trainer/Member) can have a profile photo. **Admin-managed only for now** — set/changed/removed by Admin via the user create/edit screens; no self-service upload. Users without a photo keep showing their initials everywhere.
+
+### Model + storage
+- `User.avatar_filename` (String 255, nullable) + `User.avatar_url` property (`uploads/avatars/<file>` or None, mirrors `Equipment.image_path`) + `User.initials` helper.
+- Files in `app/static/uploads/avatars/` (committed `.gitkeep`). DB: `ALTER TABLE users ADD COLUMN avatar_filename VARCHAR(255);` (manual, no Alembic).
+- `config.MAX_CONTENT_LENGTH` = `MAX_UPLOAD_MB` (default 3) × 1MB — caps every upload (avatars + equipment).
+
+### Shared upload helper (app/utils/uploads.py)
+- `save_image(file, subdir)` / `delete_image(filename, subdir)` — uuid filename, `secure_filename`, best-effort delete. Generalized out of the Equipment blueprint; `equipment/routes.py` now delegates to it (its `_save_image`/`_delete_image` are thin wrappers passing `'equipment'`). `ALLOWED_IMAGE_EXTENSIONS` lives here now.
+
+### Upload UI (Admin only)
+- `UserCreateForm.photo` (FileField + FileAllowed); `UserEditForm.photo` + `remove_photo` checkbox (`_photo_field()` factory in `users/forms.py`).
+- `users/create.html` + `users/edit.html`: `enctype="multipart/form-data"`; edit page shows current photo/initials preview + the remove checkbox (only when a photo exists).
+- `users/routes.py` `create_user`/`edit_user`: save on upload, replace-and-delete-old on change, delete on remove (same pattern as Equipment).
+
+### Display — one Jinja global, initials fallback
+- `avatar(user, classes)` registered in `app/__init__.py` (`@app.template_global`) → renders `<img class="avatar-img {classes}">` when `avatar_url` is set, else `<div class="{classes}">{initials}</div>`. `classes` is applied to both branches so each call site keeps its existing sizing/utility classes. No per-template import needed.
+- CSS `.avatar-img { object-fit:cover; border-radius:50%; }` in `style.css` — sizing comes from the companion class (`.avatar` topbar / `.user-avatar` / `.user-avatar-lg`).
+- Swapped all render sites: `base.html` topbar, `users`/`members`/`trainers` list+view, `members/my_profile`, and the admin/manager/member/trainer dashboards.
+
+---
+
+## Trainer Requests — Member ↔ Trainer assignment (Added 2026-07-26)
+
+### Behavior
+A member requests a specific trainer; that trainer (or an Admin) accepts/rejects. An accepted request IS the member↔trainer assignment that drives the trainer's "My Members". Design decisions (confirmed with the user):
+- **One open request at a time** — a PENDING *or* ACCEPTED request blocks a new one (`TrainerRequest.open_for_member()`). REJECTED/CANCELLED/ENDED do not block, so a member can re-request.
+- **Member can leave** an accepted trainer (→ ENDED, frees them to re-request); a Trainer/Admin can also remove a member (→ ENDED).
+- **Accept/Reject = Admin or the owning Trainer only** (Manager cannot act). **Manager gets read-only** oversight (list + detail, no action buttons) — needed so the new-request bell notification they receive isn't a dead link.
+- **New request notifies** the chosen trainer (direct, deep-links to the request) **and** all admins/managers (deep-links to the oversight list).
+
+### Model (app/models/trainer_request.py)
+- `TrainerRequest` (trainer_requests): member_id (FK members), trainer_id (FK trainers), status (enum), message (member's note), response_note (trainer/admin note, esp. reject reason), requested_at, responded_at/responded_by_id, ended_at/ended_by_id, audit fields. Member.trainer_requests / Trainer.trainer_requests dynamic backrefs.
+- `TrainerRequestStatus` enum: PENDING/ACCEPTED/REJECTED/CANCELLED/ENDED (label + badge_class). `OPEN_STATUSES = (PENDING, ACCEPTED)`; `open_for_member(member_id)` classmethod.
+- `NotificationAudience.SINGLE_TRAINER` added (directed one-trainer notice, same programmatic-only pattern as SINGLE_MEMBER — NOT in the compose form's hardcoded choices).
+
+### Blueprint (/trainer-requests) — app/blueprints/trainer_requests/routes.py
+- Member: GET `/find` (trainer directory + request), POST `/request` (create; guards one-open-request + trainer availability), GET `/my` (current + history), POST `/<id>/cancel` (withdraw PENDING), POST `/<id>/leave` (end ACCEPTED).
+- Trainer: GET `/incoming` (pending inbox + recent), GET `/my-members` (accepted), POST `/<id>/remove` (staff-side end of ACCEPTED).
+- Shared: GET `/<id>` (detail + **member's full details** — profile/membership/recent attendance; `_can_view` = admin/manager/owning-trainer/owning-member), POST `/<id>/accept`, POST `/<id>/reject` (`_can_act` = admin or owning trainer; reject reason optional via modal).
+- Admin oversight: GET `/` (`@admin_or_manager_required`; status tabs default **pending** + search + stats; Manager view-only — "Review" button only for `current_user.is_admin`).
+- Notification helpers mirror the payments/membership pattern: `_notify_new_request` (trainer SINGLE_TRAINER + staff ADMINS_MANAGERS, both with `link_url`), `_notify_member_of_response` (accept/reject → SINGLE_MEMBER), `_notify_trainer_of_member_action` (cancel/leave → trainer), `_notify_member_of_removal` (staff removed → member). All `is_auto=False`.
+
+### Wiring
+- `app/__init__.py`: blueprint registered; `inject_trainer_request_counts` context processor → `trainer_pending_requests` (trainer's PENDING count) for the sidebar badge.
+- Sidebar (base.html): Trainer section — activated the old "My Members (Soon)" placeholder into live **Requests** (red pending badge) + **My Members**; Member section — **My Trainer** (after My Schedule); Admin + Manager — **Trainer Requests** (after Trainers).
+- Templates under `templates/trainer_requests/`: find, my, incoming, my_members, detail, list.
+- `my_members.html` links each member to `schedules.create_schedule?member_id=` (trainer can jump straight to scheduling an accepted member).
+
+### DB migration (manual — no Alembic)
+`flask create-tables` (`db.create_all()`) created the new `trainer_requests` table + its `trainerrequeststatus` enum type. The one existing-type change:
+```sql
+ALTER TYPE notificationaudience ADD VALUE IF NOT EXISTS 'SINGLE_TRAINER';  -- outside a txn block
+```
+
+### Not done (possible follow-ups)
+- Member dashboard / My Profile still don't surface the assigned trainer (only the new My Trainer page does).
+- Schedules aren't restricted to a trainer's accepted members (any trainer can still schedule any member) — the assignment is informational, not an access gate.
+
+---
+
 ## All SRS modules complete
 3.1–3.14 are all implemented. Remaining SRS work: none (optional polish/reports only).
