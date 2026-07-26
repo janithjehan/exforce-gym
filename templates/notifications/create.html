@@ -12,7 +12,7 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Send Notification</h2>
-        <p>Share an internal announcement with active members — e.g. holiday notices.</p>
+        <p>Share an internal announcement with active members or staff — e.g. holiday notices.</p>
     </div>
 </div>
 
@@ -42,7 +42,10 @@
                     <div class="mb-3">
                         {{ form.audience.label(class='form-label fw-semibold') }}
                         {{ form.audience(class='form-select' + (' is-invalid' if form.audience.errors else ''), id='audience') }}
-                        <div class="form-text">Only active members (valid membership) are ever included.</div>
+                        <div class="form-text">
+                            Member audiences only ever include active members (valid membership).
+                            Staff audiences include all active, non-archived users of that role.
+                        </div>
                         {% for e in form.audience.errors %}
                         <div class="invalid-feedback">{{ e }}</div>
                         {% endfor %}

@@ -4,14 +4,15 @@ from flask import render_template, redirect, url_for, flash, request, abort, cur
 from flask_login import current_user, login_required
 
 from app.blueprints.payments import payments_bp
-from app.blueprints.payments.forms import PaymentCreateForm, PaymentEditForm
+from app.blueprints.payments.forms import PaymentCreateForm, PaymentEditForm, BankTransferSubmitForm
 from app.blueprints.payments.payhere import generate_hash, verify_notification
 from app.blueprints.payments.sms import send_payment_confirmation
 from app.extensions import db, csrf
+from app.models.configuration import AppConfiguration
 from app.models.member import Member
 from app.models.membership import Membership, MembershipStatus
 from app.models.package import Package
-from app.models.payment import Payment, PaymentMethod, PaymentEditLog
+from app.models.payment import Payment, PaymentMethod, PaymentStatus, PaymentEditLog
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_or_manager_required
 from app.utils.search import parse_search_terms, multi_term_filter
@@ -26,6 +27,7 @@ def list_payments():
     search = request.args.get('search', '').strip()
     method_filter = request.args.get('method', '')
     month_filter = request.args.get('month', '')  # YYYY-MM
+    status_filter = request.args.get('status', '')  # '' / 'pending'
 
     query = (
         Payment.query
@@ -45,6 +47,13 @@ def list_payments():
         except ValueError:
             pass
 
+    # Default view lists only VERIFIED payments; the Pending tab is the
+    # bank-transfer verification queue. Rejected payments aren't listed here.
+    if status_filter == 'pending':
+        query = query.filter(Payment.status == PaymentStatus.PENDING)
+    else:
+        query = query.filter(Payment.status == PaymentStatus.VERIFIED)
+
     if month_filter:
         try:
             year, month = map(int, month_filter.split('-'))
@@ -61,19 +70,24 @@ def list_payments():
         page=page, per_page=PAYMENTS_PER_PAGE, error_out=False
     )
 
-    total_revenue = db.session.query(
-        db.func.sum(Payment.amount)
+    total_revenue = db.session.query(db.func.sum(Payment.amount)).filter(
+        Payment.status == PaymentStatus.VERIFIED,
     ).scalar() or 0
 
     stats = {
-        'total': Payment.query.count(),
+        'total': Payment.query.filter(Payment.status == PaymentStatus.VERIFIED).count(),
         'total_revenue': total_revenue,
         'this_month': Payment.query.filter(
             Payment.payment_date >= date(date.today().year, date.today().month, 1),
+            Payment.status == PaymentStatus.VERIFIED,
         ).count(),
         'this_month_revenue': db.session.query(db.func.sum(Payment.amount)).filter(
             Payment.payment_date >= date(date.today().year, date.today().month, 1),
+            Payment.status == PaymentStatus.VERIFIED,
         ).scalar() or 0,
+        'pending_verification': Payment.query.filter(
+            Payment.status == PaymentStatus.PENDING,
+        ).count(),
     }
 
     return render_template(
@@ -82,6 +96,7 @@ def list_payments():
         search=search,
         method_filter=method_filter,
         month_filter=month_filter,
+        status_filter=status_filter,
         stats=stats,
         payment_methods=PaymentMethod,
         title='Payments',
@@ -314,12 +329,23 @@ def buy():
         .first()
     )
 
+    pending_membership = (
+        Membership.query
+        .filter(
+            Membership.member_id == current_user.member_profile.id,
+            Membership.status == MembershipStatus.PENDING,
+        )
+        .order_by(Membership.created_at.desc())
+        .first()
+    )
+
     min_date = (active_membership.end_date + timedelta(days=1)) if active_membership else today
 
     return render_template(
         'payments/buy.html',
         packages=packages,
         active_membership=active_membership,
+        pending_membership=pending_membership,
         min_date=min_date.strftime('%Y-%m-%d'),
         title='Choose a Plan',
     )
@@ -339,6 +365,18 @@ def payhere_checkout():
     if not current_user.member_profile:
         flash('Member profile not found. Please contact staff.', 'danger')
         return redirect(url_for('dashboard.home'))
+
+    existing_pending = Membership.query.filter(
+        Membership.member_id == current_user.member_profile.id,
+        Membership.status == MembershipStatus.PENDING,
+    ).first()
+    if existing_pending:
+        flash(
+            'You already have a bank transfer submission awaiting verification. '
+            'Please wait for staff to confirm it before starting a new payment.',
+            'warning',
+        )
+        return redirect(url_for('memberships.view_membership', membership_id=existing_pending.id))
 
     package_id = request.args.get('package_id', type=int)
     start_date_str = request.args.get('start_date', '').strip()
@@ -428,6 +466,360 @@ def payhere_checkout():
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     resp.headers['Pragma'] = 'no-cache'
     return resp
+
+
+# ─────────────────────────── Bank Transfer routes ──────────────────────────── #
+
+def _validate_package_and_date(package_id, start_date_str):
+    """Shared re-validation for both PayHere and Bank Transfer flows.
+    Returns (package, start_date) or (None, None) after flashing + the caller
+    should redirect to payments.buy."""
+    if not package_id or not start_date_str:
+        flash('Please select a package and start date.', 'danger')
+        return None, None
+
+    package = Package.query.get(package_id)
+    if not package or not package.is_active or package.is_archived:
+        flash('This package is no longer available.', 'danger')
+        return None, None
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Invalid start date.', 'danger')
+        return None, None
+
+    if start_date < date.today():
+        flash('Start date cannot be in the past.', 'danger')
+        return None, None
+
+    return package, start_date
+
+
+@payments_bp.route('/bank-transfer', methods=['GET', 'POST'])
+@login_required
+def bank_transfer():
+    """Member-facing: submit a bank transfer reference number for a chosen
+    package + start date. Creates a PENDING Membership + PENDING Payment —
+    both stay inactive until an Admin/Manager verifies the transfer."""
+    if current_user.role != UserRole.MEMBER:
+        abort(403)
+    if not current_user.member_profile:
+        flash('Member profile not found. Please contact staff.', 'danger')
+        return redirect(url_for('dashboard.home'))
+
+    member = current_user.member_profile
+
+    existing_pending = (
+        Membership.query
+        .filter(
+            Membership.member_id == member.id,
+            Membership.status == MembershipStatus.PENDING,
+        )
+        .order_by(Membership.created_at.desc())
+        .first()
+    )
+    if existing_pending:
+        flash(
+            'You already have a bank transfer submission awaiting verification. '
+            'Please wait for staff to confirm it before submitting another.',
+            'warning',
+        )
+        return redirect(url_for('memberships.view_membership', membership_id=existing_pending.id))
+
+    package_id = request.args.get('package_id', type=int) or request.form.get('package_id', type=int)
+    start_date_str = (request.args.get('start_date') or request.form.get('start_date') or '').strip()
+
+    package, start_date = _validate_package_and_date(package_id, start_date_str)
+    if not package:
+        return redirect(url_for('payments.buy'))
+
+    end_date = Membership.calculate_end_date(start_date, package.duration_months)
+    settings = AppConfiguration.get()
+
+    form = BankTransferSubmitForm()
+
+    if form.validate_on_submit():
+        membership = Membership(
+            member_id=member.id,
+            package_id=package.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=MembershipStatus.PENDING,
+            notes='Awaiting bank transfer verification.',
+            created_by_id=current_user.id,
+        )
+        db.session.add(membership)
+        db.session.flush()
+
+        payment = Payment(
+            member_id=member.id,
+            membership_id=membership.id,
+            amount=package.price,
+            method=PaymentMethod.BANK_TRANSFER,
+            payment_date=date.today(),
+            reference_no=form.reference_no.data.strip(),
+            notes=form.notes.data.strip() or None,
+            status=PaymentStatus.PENDING,
+            created_by_id=current_user.id,
+        )
+        db.session.add(payment)
+        db.session.commit()
+
+        _notify_staff_of_membership_request(membership, payment)
+
+        flash(
+            'Your bank transfer has been submitted and is awaiting verification by staff. '
+            'Your membership will activate once confirmed.',
+            'success',
+        )
+        return redirect(url_for('memberships.view_membership', membership_id=membership.id))
+
+    return render_template(
+        'payments/bank_transfer.html',
+        form=form,
+        package=package,
+        start_date=start_date,
+        end_date=end_date,
+        bank_details=settings.bank_transfer_details,
+        title='Pay by Bank Transfer',
+    )
+
+
+@payments_bp.route('/<int:payment_id>/verify', methods=['POST'])
+@admin_or_manager_required
+def verify_payment(payment_id):
+    """Confirm a member-submitted bank transfer: activates the linked
+    (PENDING) membership and marks the payment VERIFIED."""
+    payment = Payment.query.get_or_404(payment_id)
+
+    if payment.method != PaymentMethod.BANK_TRANSFER or payment.status != PaymentStatus.PENDING:
+        flash('Only pending bank transfer payments can be verified.', 'warning')
+        return redirect(url_for('payments.view_payment', payment_id=payment.id))
+
+    payment.status = PaymentStatus.VERIFIED
+    payment.verified_by_id = current_user.id
+    payment.verified_at = datetime.utcnow()
+    payment.updated_by_id = current_user.id
+    payment.updated_at = datetime.utcnow()
+
+    if payment.membership and payment.membership.status == MembershipStatus.PENDING:
+        payment.membership.status = MembershipStatus.ACTIVE
+        payment.membership.notes = f'Activated via verified bank transfer. Ref: {payment.reference_no}'
+        payment.membership.updated_by_id = current_user.id
+        payment.membership.updated_at = datetime.utcnow()
+
+    db.session.commit()
+
+    _notify_member_of_activation(payment)
+
+    sms_ok, sms_error = send_payment_confirmation(payment)
+    flash(f'Payment #{payment.id} verified. Membership activated. The member has been notified.', 'success')
+    if not sms_ok and sms_error != 'SMS gateway not configured':
+        flash(f'Confirmation SMS could not be sent: {sms_error}', 'warning')
+
+    return redirect(url_for('payments.view_payment', payment_id=payment.id))
+
+
+@payments_bp.route('/<int:payment_id>/reject', methods=['POST'])
+@admin_or_manager_required
+def reject_payment(payment_id):
+    """Reject a member-submitted bank transfer: cancels the linked (PENDING)
+    membership and marks the payment REJECTED."""
+    payment = Payment.query.get_or_404(payment_id)
+
+    if payment.method != PaymentMethod.BANK_TRANSFER or payment.status != PaymentStatus.PENDING:
+        flash('Only pending bank transfer payments can be rejected.', 'warning')
+        return redirect(url_for('payments.view_payment', payment_id=payment.id))
+
+    reason = request.form.get('rejection_reason', '').strip()
+    if not reason:
+        flash('A rejection reason is required so the member can be notified why.', 'danger')
+        return redirect(request.referrer or url_for('payments.view_payment', payment_id=payment.id))
+
+    payment.status = PaymentStatus.REJECTED
+    payment.rejection_reason = reason
+    payment.verified_by_id = current_user.id
+    payment.verified_at = datetime.utcnow()
+    payment.updated_by_id = current_user.id
+    payment.updated_at = datetime.utcnow()
+
+    if payment.membership and payment.membership.status == MembershipStatus.PENDING:
+        payment.membership.status = MembershipStatus.CANCELLED
+        payment.membership.notes = f'Cancelled — bank transfer rejected. Ref: {payment.reference_no}'
+        payment.membership.updated_by_id = current_user.id
+        payment.membership.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    _notify_member_of_rejection(payment, reason)
+
+    flash(f'Payment #{payment.id} rejected. The member has been notified.', 'secondary')
+    return redirect(url_for('payments.view_payment', payment_id=payment.id))
+
+
+@payments_bp.route('/<int:payment_id>/cancel-request', methods=['POST'])
+@login_required
+def cancel_request(payment_id):
+    """Member-facing: withdraw a still-pending bank transfer request the member
+    submitted. Cancels the linked PENDING membership and marks the payment
+    REJECTED. Only the owning member, only while still PENDING (i.e. before an
+    Admin/Manager has verified or rejected it)."""
+    payment = Payment.query.get_or_404(payment_id)
+
+    if current_user.role != UserRole.MEMBER:
+        abort(403)
+    if (not current_user.member_profile
+            or current_user.member_profile.id != payment.member_id):
+        abort(403)
+
+    if payment.method != PaymentMethod.BANK_TRANSFER or payment.status != PaymentStatus.PENDING:
+        flash(
+            'This request can no longer be cancelled — staff have already processed it.',
+            'warning',
+        )
+        return redirect(url_for('memberships.view_membership', membership_id=payment.membership_id)
+                        if payment.membership_id else url_for('payments.buy'))
+
+    payment.status = PaymentStatus.REJECTED
+    payment.rejection_reason = 'Cancelled by the member before verification.'
+    payment.updated_by_id = current_user.id
+    payment.updated_at = datetime.utcnow()
+
+    if payment.membership and payment.membership.status == MembershipStatus.PENDING:
+        payment.membership.status = MembershipStatus.CANCELLED
+        payment.membership.notes = 'Cancelled by the member before verification.'
+        payment.membership.updated_by_id = current_user.id
+        payment.membership.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    _notify_staff_of_request_cancellation(payment)
+
+    flash('Your membership request has been cancelled. You can submit a new one anytime.', 'secondary')
+    return redirect(url_for('payments.buy'))
+
+
+def _notify_staff_of_request_cancellation(payment):
+    """In-app notice to every Admin + Manager that a member has withdrawn a
+    membership request they had previously submitted (keeps the earlier
+    "New Membership Request" alert from going stale)."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import resolve_audience, dispatch_notification
+
+    recipients = resolve_audience(NotificationAudience.ADMINS_MANAGERS)
+    if not recipients:
+        return
+
+    package_name = payment.membership.package.name if payment.membership else 'a package'
+    notification = Notification(
+        title='Membership Request Cancelled',
+        message=(
+            f'{payment.member.full_name} cancelled their membership request for '
+            f'"{package_name}" (Ref: {payment.reference_no}) before it was verified. '
+            'No action is needed.'
+        ),
+        audience=NotificationAudience.ADMINS_MANAGERS,
+        is_auto=False,
+        created_by_id=payment.member.user_id,
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, recipients)
+    db.session.commit()
+
+
+def _notify_staff_of_membership_request(membership, payment):
+    """In-app notice to every Admin + Manager that a member has requested a
+    membership (bank transfer awaiting verification). Surfaces in the topbar
+    notification bell / inbox of each staff member."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import resolve_audience, dispatch_notification
+
+    recipients = resolve_audience(NotificationAudience.ADMINS_MANAGERS)
+    if not recipients:
+        return
+
+    member_name = payment.member.full_name
+    notification = Notification(
+        title='New Membership Request',
+        message=(
+            f'{member_name} has requested the "{membership.package.name}" package via bank transfer '
+            f'and is awaiting verification.\n\n'
+            f'Amount: LKR {payment.amount:,.2f}\n'
+            f'Reference: {payment.reference_no}\n'
+            f'Requested period: {membership.start_date.strftime("%d %b %Y")} → '
+            f'{membership.end_date.strftime("%d %b %Y")}\n\n'
+            'Review it to verify or reject the transfer.'
+        ),
+        audience=NotificationAudience.ADMINS_MANAGERS,
+        is_auto=False,
+        link_url=url_for('memberships.view_membership', membership_id=membership.id),
+        created_by_id=payment.created_by_id,
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, recipients)
+    db.session.commit()
+
+
+def _notify_member_of_activation(payment):
+    """In-app notice to the member that their verified bank transfer has
+    activated their membership. Mirrors _notify_member_of_rejection — the
+    positive counterpart fired from verify_payment."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import dispatch_notification
+
+    membership = payment.membership
+    package_name = membership.package.name if membership else 'your membership'
+
+    message = (
+        f'Good news! Your bank transfer (Ref: {payment.reference_no}) has been verified '
+        f'and your "{package_name}" membership is now active.'
+    )
+    if membership:
+        message += (
+            f'\n\nValid: {membership.start_date.strftime("%d %b %Y")} → '
+            f'{membership.end_date.strftime("%d %b %Y")}'
+        )
+    message += '\n\nEnjoy your training!'
+
+    notification = Notification(
+        title='Membership Activated',
+        message=message,
+        audience=NotificationAudience.SINGLE_MEMBER,
+        is_auto=False,
+        link_url=(
+            url_for('memberships.view_membership', membership_id=membership.id)
+            if membership else None
+        ),
+        created_by_id=payment.verified_by_id,
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, [payment.member.user])
+    db.session.commit()
+
+
+def _notify_member_of_rejection(payment, reason):
+    """In-app notice to the member explaining why their bank transfer was rejected."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import dispatch_notification
+
+    package_name = payment.membership.package.name if payment.membership else 'your membership'
+    notification = Notification(
+        title='Bank Transfer Rejected',
+        message=(
+            f'Your bank transfer (Ref: {payment.reference_no}) for {package_name} could not be '
+            f'verified and has been rejected.\n\nReason: {reason}\n\n'
+            'Please contact the gym reception if you have questions, or submit a new payment.'
+        ),
+        audience=NotificationAudience.SINGLE_MEMBER,
+        is_auto=False,
+        created_by_id=payment.verified_by_id,
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, [payment.member.user])
+    db.session.commit()
 
 
 @payments_bp.route('/notify', methods=['POST'])

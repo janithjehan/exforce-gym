@@ -222,7 +222,37 @@ def my_profile():
         flash('Your member profile has not been set up yet. Please contact the gym.', 'warning')
         return redirect(url_for('dashboard.home'))
 
-    return render_template('members/my_profile.html', member=member, title='My Profile')
+    from app.models.membership import Membership, MembershipStatus
+    Membership.expire_passed()
+
+    today = date.today()
+    active_membership = (
+        Membership.query
+        .filter(
+            Membership.member_id == member.id,
+            Membership.status == MembershipStatus.ACTIVE,
+            Membership.end_date >= today,
+        )
+        .order_by(Membership.end_date.desc())
+        .first()
+    )
+    pending_membership = (
+        Membership.query
+        .filter(
+            Membership.member_id == member.id,
+            Membership.status == MembershipStatus.PENDING,
+        )
+        .order_by(Membership.created_at.desc())
+        .first()
+    )
+
+    return render_template(
+        'members/my_profile.html',
+        member=member,
+        active_membership=active_membership,
+        pending_membership=pending_membership,
+        title='My Profile',
+    )
 
 
 @members_bp.route('/my-profile/edit', methods=['GET', 'POST'])

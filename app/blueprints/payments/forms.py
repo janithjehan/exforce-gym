@@ -28,6 +28,20 @@ class PaymentCreateForm(FlaskForm):
     submit = SubmitField('Record Payment')
 
 
+class BankTransferSubmitForm(FlaskForm):
+    reference_no = StringField(
+        'Bank Reference / Slip No.',
+        validators=[DataRequired(), Length(max=100)],
+        render_kw={'placeholder': 'e.g. the reference no. printed on your deposit slip'},
+    )
+    notes = TextAreaField(
+        'Notes (optional)',
+        validators=[Optional(), Length(max=500)],
+        render_kw={'rows': 2, 'placeholder': 'Anything staff should know...'},
+    )
+    submit = SubmitField('Submit for Verification')
+
+
 class PaymentEditForm(FlaskForm):
     amount = DecimalField('Amount (LKR)', places=2,
                           validators=[DataRequired(), NumberRange(min=0.01, message='Amount must be greater than 0.')])

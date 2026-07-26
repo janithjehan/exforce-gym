@@ -76,9 +76,7 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <div class="user-avatar">
-                                    {{ t.user.first_name[0]|upper }}{{ t.user.last_name[0]|upper }}
-                                </div>
+                                {{ avatar(t.user, 'user-avatar') }}
                                 <div>
                                     <div class="fw-semibold" style="font-size:13.5px;">
                                         <a href="{{ url_for('trainers.view_trainer', trainer_id=t.id) }}"

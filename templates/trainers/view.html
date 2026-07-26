@@ -63,9 +63,7 @@
     <div class="col-lg-4">
         <div class="card">
             <div class="card-body text-center pt-4">
-                <div class="user-avatar user-avatar-lg mx-auto mb-3">
-                    {{ trainer.user.first_name[0]|upper }}{{ trainer.user.last_name[0]|upper }}
-                </div>
+                {{ avatar(trainer.user, 'user-avatar user-avatar-lg mx-auto mb-3') }}
                 <h5 class="fw-bold mb-1">{{ trainer.full_name }}</h5>
                 <div class="text-muted mb-1" style="font-size:13px;">@{{ trainer.username }}</div>
                 <div class="text-muted mb-3" style="font-size:12px;">{{ trainer.email }}</div>

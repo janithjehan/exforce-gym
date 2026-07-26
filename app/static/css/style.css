@@ -495,6 +495,14 @@ a:hover { text-decoration: none; }
     font-size: 24px;
 }
 
+/* Photo avatars — sizing comes from the companion class (.avatar,
+   .user-avatar, .user-avatar-lg); this just makes the image circular. */
+.avatar-img {
+    object-fit: cover;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
 /* ============================================================
    BREADCRUMB
    ============================================================ */

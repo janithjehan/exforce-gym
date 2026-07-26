@@ -30,10 +30,15 @@
                                         {% endif %}
                                     </span>
                                     <span class="text-muted" style="font-size:12px;">
-                                        {{ log.created_at.strftime('%d %b %Y, %H:%M') }}
+                                        {{ log.created_at | localdt('%d %b %Y, %H:%M') }}
                                     </span>
                                 </div>
                                 <p class="text-muted mb-0 mt-1" style="font-size:13px; white-space: pre-line;">{{ log.notification.message }}</p>
+                                {% if log.notification.link_url %}
+                                <a href="{{ log.notification.link_url }}" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="fa-solid fa-arrow-right me-1"></i>View request
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </li>

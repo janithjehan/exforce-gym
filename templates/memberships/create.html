@@ -25,15 +25,23 @@
 
                     <div class="mb-3">
                         {{ form.member_id.label(class='form-label') }}
-                        {{ form.member_id(class='form-select' + (' is-invalid' if form.member_id.errors else '')) }}
+                        <input list="memberOptions" name="member_label"
+                               value="{{ member_label or '' }}" autocomplete="off"
+                               class="form-control{{ ' is-invalid' if form.member_id.errors else '' }}"
+                               placeholder="Type a member's name…">
+                        <datalist id="memberOptions">
+                            {% for m in members %}
+                            <option value="{{ m.full_name }} ({{ m.email }})"></option>
+                            {% endfor %}
+                        </datalist>
                         {% for e in form.member_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        <div class="form-text">Start typing to filter, then pick a member from the list.</div>
                     </div>
 
                     <div class="mb-3">
                         {{ form.package_id.label(class='form-label') }}
                         {{ form.package_id(class='form-select' + (' is-invalid' if form.package_id.errors else '')) }}
                         {% for e in form.package_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                        <div class="form-text">Only active packages are shown.</div>
                     </div>
 
                     <div class="mb-3">

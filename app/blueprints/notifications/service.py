@@ -3,6 +3,11 @@
 Shared by the web routes and the `flask send-expiry-reminders` CLI job.
 Notifications are internal (in-app) announcements only — SMS is reserved
 for payment confirmations (see app/blueprints/payments/sms.py).
+
+`resolve_audience()` always returns a list of `User` objects (recipients),
+regardless of whether the audience is member-based or staff-based —
+`dispatch_notification()` and `send_expiry_reminders()` work uniformly
+against `User.id` as a result.
 """
 from datetime import datetime, date, timedelta
 
@@ -12,15 +17,33 @@ from app.models.membership import Membership, MembershipStatus
 from app.models.notification import (
     Notification, NotificationLog, NotificationAudience,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 
 EXPIRING_SOON_DAYS = 30
 
+STAFF_ROLES_BY_AUDIENCE = {
+    NotificationAudience.ALL_ADMINS: [UserRole.ADMIN],
+    NotificationAudience.ALL_MANAGERS: [UserRole.MANAGER],
+    NotificationAudience.ALL_TRAINERS: [UserRole.TRAINER],
+    NotificationAudience.ALL_STAFF: [UserRole.ADMIN, UserRole.MANAGER, UserRole.TRAINER],
+    NotificationAudience.ADMINS_MANAGERS: [UserRole.ADMIN, UserRole.MANAGER],
+}
+
 
 def resolve_audience(audience, package_id=None):
-    """FR-NOT-01/02: return active members matching the audience filter.
-    Active member = not archived, account active, has an ACTIVE membership
-    with end_date >= today."""
+    """Return the list of recipient Users matching the audience filter.
+
+    Member audiences (FR-NOT-01/02): active member = not archived, account
+    active, has an ACTIVE membership with end_date >= today.
+    Staff audiences: active, non-archived Users with a matching role.
+    """
+    if audience in STAFF_ROLES_BY_AUDIENCE:
+        return User.query.filter(
+            User.role.in_(STAFF_ROLES_BY_AUDIENCE[audience]),
+            User.is_active == True,
+            User.is_archived == False,
+        ).all()
+
     today = date.today()
     query = (
         Member.query
@@ -39,18 +62,19 @@ def resolve_audience(audience, package_id=None):
         query = query.filter(
             Membership.end_date <= today + timedelta(days=EXPIRING_SOON_DAYS)
         )
-    return query.distinct().all()
+    members = query.distinct().all()
+    return [m.user for m in members]
 
 
-def dispatch_notification(notification, members):
-    """Create an in-app delivery log per recipient. Caller commits."""
-    for member in members:
+def dispatch_notification(notification, users):
+    """Create an in-app delivery log per recipient User. Caller commits."""
+    for user in users:
         db.session.add(NotificationLog(
             notification_id=notification.id,
-            member_id=member.id,
+            recipient_id=user.id,
         ))
 
-    notification.recipient_count = len(members)
+    notification.recipient_count = len(users)
     notification.sent_at = datetime.utcnow()
 
 
@@ -66,7 +90,7 @@ def send_expiry_reminders():
     already_reminded = {
         row[0]
         for row in (
-            db.session.query(NotificationLog.member_id)
+            db.session.query(NotificationLog.recipient_id)
             .join(Notification, NotificationLog.notification_id == Notification.id)
             .filter(
                 Notification.is_auto == True,
@@ -76,7 +100,7 @@ def send_expiry_reminders():
             .all()
         )
     }
-    to_notify = [m for m in expiring if m.id not in already_reminded]
+    to_notify = [u for u in expiring if u.id not in already_reminded]
     if not to_notify:
         return 0, len(expiring)
 

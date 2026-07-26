@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Trainer Requests</h2>
+        <p>Members' requests to be trained by a specific trainer.</p>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-warning">{{ stats.pending }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value text-success">{{ stats.accepted }}</div>
+            <div class="stat-label">Active Assignments</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Requests</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <ul class="nav nav-tabs card-header-tabs mb-0">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'pending' %}active{% endif %}"
+                   href="{{ url_for('trainer_requests.list_requests', status='pending', search=search) }}">
+                    Pending
+                    {% if stats.pending %}<span class="badge bg-warning text-dark ms-1">{{ stats.pending }}</span>{% endif %}
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'accepted' %}active{% endif %}"
+                   href="{{ url_for('trainer_requests.list_requests', status='accepted', search=search) }}">Accepted</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'rejected' %}active{% endif %}"
+                   href="{{ url_for('trainer_requests.list_requests', status='rejected', search=search) }}">Rejected</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'ended' %}active{% endif %}"
+                   href="{{ url_for('trainer_requests.list_requests', status='ended', search=search) }}">Ended</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('trainer_requests.list_requests', status='all', search=search) }}">All</a>
+            </li>
+        </ul>
+        <form method="GET" class="ms-auto d-flex gap-2">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="text" name="search" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Search member..." style="width:230px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            {% if search %}
+            <a href="{{ url_for('trainer_requests.list_requests', status=status_filter) }}"
+               class="btn btn-sm btn-outline-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if requests.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Trainer</th>
+                        <th>Requested</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in requests.items %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ r.member.full_name }}</div>
+                            <div class="text-muted small">{{ r.member.email }}</div>
+                        </td>
+                        <td>{{ r.trainer.full_name }}</td>
+                        <td class="text-muted small">{{ r.requested_at | localdt('%d %b %Y') }}</td>
+                        <td><span class="badge bg-{{ r.status_badge_class }}">{{ r.status_label }}</span></td>
+                        <td class="text-end">
+                            <a href="{{ url_for('trainer_requests.view_request', request_id=r.id) }}"
+                               class="btn btn-sm btn-outline-secondary">
+                                {% if r.is_pending and current_user.is_admin %}Review{% else %}View{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if requests.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not requests.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('trainer_requests.list_requests', page=requests.prev_num, status=status_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in requests.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == requests.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('trainer_requests.list_requests', page=p, status=status_filter, search=search) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not requests.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('trainer_requests.list_requests', page=requests.next_num, status=status_filter, search=search) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-user-plus fa-2x mb-3 d-block"></i>
+            No trainer requests found.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

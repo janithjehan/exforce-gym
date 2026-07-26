@@ -170,7 +170,7 @@
                 <li class="list-group-item px-3">
                     <div class="d-flex justify-content-between">
                         <span class="fw-semibold">v{{ log.version }}</span>
-                        <span class="text-muted small">{{ log.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+                        <span class="text-muted small">{{ log.created_at | localdt('%d %b %Y, %H:%M') }}</span>
                     </div>
                     <div class="text-muted">{{ log.summary }}</div>
                     <div class="text-muted small">by {{ log.edited_by.full_name }}</div>

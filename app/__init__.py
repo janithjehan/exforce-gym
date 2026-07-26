@@ -50,6 +50,7 @@ def create_app(config_name=None):
     from app.blueprints.payments import payments_bp
     from app.blueprints.attendance import attendance_bp
     from app.blueprints.trainers import trainers_bp
+    from app.blueprints.trainer_requests import trainer_requests_bp
     from app.blueprints.notifications import notifications_bp
     from app.blueprints.workouts import workouts_bp
     from app.blueprints.schedules import schedules_bp
@@ -58,6 +59,9 @@ def create_app(config_name=None):
     from app.blueprints.measurements import measurements_bp
     from app.blueprints.feedback import feedback_bp
     from app.blueprints.payroll import payroll_bp
+    from app.blueprints.expenses import expenses_bp
+    from app.blueprints.reports import reports_bp
+    from app.blueprints.configuration import configuration_bp
     from app.blueprints.dashboard import dashboard_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -68,6 +72,7 @@ def create_app(config_name=None):
     app.register_blueprint(payments_bp, url_prefix='/payments')
     app.register_blueprint(attendance_bp, url_prefix='/attendance')
     app.register_blueprint(trainers_bp, url_prefix='/trainers')
+    app.register_blueprint(trainer_requests_bp, url_prefix='/trainer-requests')
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
     app.register_blueprint(workouts_bp, url_prefix='/workouts')
     app.register_blueprint(schedules_bp, url_prefix='/schedules')
@@ -76,19 +81,62 @@ def create_app(config_name=None):
     app.register_blueprint(measurements_bp, url_prefix='/measurements')
     app.register_blueprint(feedback_bp, url_prefix='/feedback')
     app.register_blueprint(payroll_bp, url_prefix='/payroll')
+    app.register_blueprint(expenses_bp, url_prefix='/expenses')
+    app.register_blueprint(reports_bp, url_prefix='/reports')
+    app.register_blueprint(configuration_bp, url_prefix='/configuration')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
-    # Unread in-app notification badge for members (sidebar)
+    # Timezone display filter — stored timestamps are naive UTC; render them
+    # in the gym's local time (Asia/Colombo, UTC+5:30). Use in templates as
+    # {{ some_datetime | localdt }} or {{ some_datetime | localdt('%d %b %Y') }}.
+    from app.utils.timezones import to_local
+
+    @app.template_filter('localdt')
+    def localdt(dt, fmt='%d %b %Y, %H:%M'):
+        local = to_local(dt)
+        return local.strftime(fmt) if local else ''
+
+    # Avatar renderer — a user's uploaded photo, or their initials as a fallback.
+    # `classes` are applied to both the <img> and the initials <div> so the call
+    # site keeps its existing sizing/utility classes (e.g. 'user-avatar user-avatar-lg mx-auto').
+    from markupsafe import Markup, escape
+
+    @app.template_global()
+    def avatar(user, classes='user-avatar'):
+        if user is not None and getattr(user, 'avatar_url', None):
+            src = url_for('static', filename=user.avatar_url)
+            return Markup(
+                f'<img src="{src}" alt="{escape(user.full_name)}" class="avatar-img {escape(classes)}">'
+            )
+        initials = escape(user.initials) if user is not None else '?'
+        return Markup(f'<div class="{escape(classes)}">{initials}</div>')
+
+    # Unread in-app notification badge — available to every authenticated role
     @app.context_processor
     def inject_unread_notifications():
         unread = 0
-        if current_user.is_authenticated and getattr(current_user, 'member_profile', None):
+        if current_user.is_authenticated:
             from app.models.notification import NotificationLog
             unread = NotificationLog.query.filter_by(
-                member_id=current_user.member_profile.id,
+                recipient_id=current_user.id,
                 is_read=False,
             ).count()
         return {'unread_notifications': unread}
+
+    # Pending trainer-request count for a trainer's sidebar badge
+    @app.context_processor
+    def inject_trainer_request_counts():
+        from app.models.user import UserRole
+        count = 0
+        if (current_user.is_authenticated
+                and current_user.role == UserRole.TRAINER
+                and current_user.trainer_profile):
+            from app.models.trainer_request import TrainerRequest, TrainerRequestStatus
+            count = TrainerRequest.query.filter_by(
+                trainer_id=current_user.trainer_profile.id,
+                status=TrainerRequestStatus.PENDING,
+            ).count()
+        return {'trainer_pending_requests': count}
 
     # Root redirect
     @app.route('/')

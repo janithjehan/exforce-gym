@@ -1,11 +1,8 @@
-import os
-import uuid
 from datetime import datetime
 
-from flask import render_template, redirect, url_for, flash, request, current_app
+from flask import render_template, redirect, url_for, flash, request
 from flask_login import current_user
 from sqlalchemy import func
-from werkzeug.utils import secure_filename
 
 from app.blueprints.equipment import equipment_bp
 from app.blueprints.equipment.forms import EquipmentForm
@@ -13,34 +10,17 @@ from app.extensions import db
 from app.models.equipment import Equipment, EquipmentCategory, EquipmentStatus
 from app.utils.decorators import admin_required, admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.uploads import save_image, delete_image
 
 EQUIPMENT_PER_PAGE = 15
 
 
-def _upload_dir():
-    path = os.path.join(current_app.static_folder, 'uploads', 'equipment')
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
 def _save_image(file_storage):
-    """Store an uploaded image with a unique name; returns the stored filename."""
-    original = secure_filename(file_storage.filename)
-    ext = original.rsplit('.', 1)[-1].lower() if '.' in original else 'jpg'
-    filename = f'{uuid.uuid4().hex}.{ext}'
-    file_storage.save(os.path.join(_upload_dir(), filename))
-    return filename
+    return save_image(file_storage, 'equipment')
 
 
 def _delete_image(filename):
-    if not filename:
-        return
-    path = os.path.join(_upload_dir(), filename)
-    try:
-        if os.path.isfile(path):
-            os.remove(path)
-    except OSError:
-        pass  # never block the request on filesystem cleanup
+    delete_image(filename, 'equipment')
 
 
 @equipment_bp.route('/')

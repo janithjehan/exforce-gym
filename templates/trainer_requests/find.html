@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Find a Trainer</h2>
+        <p>Browse our trainers and request the one you'd like to train with.</p>
+    </div>
+    <a href="{{ url_for('trainer_requests.my_request') }}" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-id-card me-2"></i>My Trainer
+    </a>
+</div>
+
+{% if trainers %}
+<div class="row g-4">
+    {% for t in trainers %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body text-center pt-4">
+                {{ avatar(t.user, 'user-avatar user-avatar-lg mx-auto mb-3') }}
+                <h5 class="fw-bold mb-1">{{ t.full_name }}</h5>
+                <div class="text-muted mb-2" style="font-size:13px;">
+                    {{ t.specialization or 'General Training' }}
+                </div>
+                {% if t.experience_years %}
+                <span class="badge bg-light text-dark mb-2">
+                    <i class="fa-solid fa-medal me-1"></i>{{ t.experience_years }} yr experience
+                </span>
+                {% endif %}
+                {% if t.bio %}
+                <p class="text-muted mt-2" style="font-size:13px;">{{ t.bio | truncate(120) }}</p>
+                {% endif %}
+            </div>
+            <div class="card-body border-top pt-3">
+                <form method="POST" action="{{ url_for('trainer_requests.submit_request') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="trainer_id" value="{{ t.id }}">
+                    <textarea name="message" rows="2" class="form-control form-control-sm mb-2"
+                              placeholder="Optional message to {{ t.full_name.split(' ')[0] }}…"></textarea>
+                    <button type="submit" class="btn btn-primary w-100"
+                            onclick="return confirm('Request {{ t.full_name }} as your trainer?');">
+                        <i class="fa-solid fa-paper-plane me-1"></i>Request this Trainer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="text-center py-5 text-muted">
+        <i class="fa-solid fa-person-running fa-2x mb-3 d-block"></i>
+        No trainers are available right now. Please check back later.
+    </div>
+</div>
+{% endif %}
+{% endblock %}

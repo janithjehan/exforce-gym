@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>My Membership</h2>
+        <p>Your current plan and membership history.</p>
+    </div>
+    <a href="{{ url_for('payments.buy') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-2"></i>Get a Plan
+    </a>
+</div>
+
+<!-- Current / pending status -->
+{% if current %}
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div>
+                <div class="text-muted small">Active Plan</div>
+                <div class="fw-bold" style="font-size:18px;">{{ current.package.name }}</div>
+                <div class="text-muted small">{{ current.package.duration_label }}</div>
+            </div>
+            <div class="ms-auto text-end">
+                <span class="badge bg-success px-3 py-2" style="font-size:13px;">Active</span>
+                <div class="text-muted small mt-1">{{ current.days_remaining }} days remaining</div>
+            </div>
+        </div>
+        <hr>
+        <div class="row text-center g-3">
+            <div class="col-6">
+                <div class="text-muted small">Start Date</div>
+                <div class="fw-semibold">{{ current.start_date.strftime('%d %b %Y') }}</div>
+            </div>
+            <div class="col-6">
+                <div class="text-muted small">Expiry Date</div>
+                <div class="fw-semibold {% if current.days_remaining <= 7 %}text-danger{% elif current.days_remaining <= 30 %}text-warning{% endif %}">
+                    {{ current.end_date.strftime('%d %b %Y') }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% elif pending %}
+<div class="alert alert-warning d-flex align-items-center gap-3 mb-4">
+    <i class="fa-solid fa-hourglass-half fa-lg"></i>
+    <div class="flex-grow-1">
+        Your bank transfer for <strong>{{ pending.package.name }}</strong> is awaiting verification by staff.
+    </div>
+    <a href="{{ url_for('memberships.view_membership', membership_id=pending.id) }}"
+       class="btn btn-outline-secondary btn-sm text-nowrap">View status</a>
+</div>
+{% else %}
+<div class="card mb-4">
+    <div class="card-body text-center py-4">
+        <i class="fa-solid fa-circle-xmark fa-2x text-muted mb-2 d-block"></i>
+        <p class="text-muted mb-3">You don't have an active membership plan.</p>
+        <a href="{{ url_for('payments.buy') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-globe me-2"></i>Get a Plan
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- History -->
+<div class="card">
+    <div class="card-header">
+        <strong>Membership History</strong>
+    </div>
+    <div class="card-body p-0">
+        {% if memberships.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Package</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ms in memberships.items %}
+                    <tr>
+                        <td class="text-muted small">{{ ms.id }}</td>
+                        <td class="fw-semibold">{{ ms.package.name }}</td>
+                        <td class="text-muted small">{{ ms.start_date.strftime('%d %b %Y') }}</td>
+                        <td class="text-muted small">{{ ms.end_date.strftime('%d %b %Y') }}</td>
+                        <td><span class="badge bg-{{ ms.status_badge_class }}">{{ ms.status_label }}</span></td>
+                        <td class="text-end">
+                            <a href="{{ url_for('memberships.view_membership', membership_id=ms.id) }}"
+                               class="btn btn-sm btn-outline-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if memberships.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not memberships.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('memberships.my_memberships', page=memberships.prev_num) }}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in memberships.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == memberships.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('memberships.my_memberships', page=p) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not memberships.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('memberships.my_memberships', page=memberships.next_num) }}">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-id-card fa-2x mb-3 d-block"></i>
+            No memberships yet.
+            <a href="{{ url_for('payments.buy') }}">Get a plan</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

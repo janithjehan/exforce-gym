@@ -1,11 +1,14 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% set pending_payment = membership.payments.first() if membership.status.value == 'pending' else None %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
         {% if current_user.role.value == 'admin' %}
         <li class="breadcrumb-item"><a href="{{ url_for('memberships.list_memberships') }}">Memberships</a></li>
+        {% elif current_user.role.value == 'member' %}
+        <li class="breadcrumb-item"><a href="{{ url_for('memberships.my_memberships') }}">My Membership</a></li>
         {% endif %}
         <li class="breadcrumb-item active">Membership #{{ membership.id }}</li>
     </ol>
@@ -20,7 +23,15 @@
         </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        {% if current_user.role.value in ('admin', 'manager') %}
+        {% if current_user.role.value in ('admin', 'manager') and pending_payment %}
+        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#verifyPaymentModal">
+            <i class="fa-solid fa-check me-1"></i>Verify Payment
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectPaymentModal">
+            <i class="fa-solid fa-xmark me-1"></i>Reject Payment
+        </button>
+        {% endif %}
+        {% if current_user.role.value in ('admin', 'manager') and membership.status.value != 'pending' %}
         <form method="POST" action="{{ url_for('memberships.renew_membership', membership_id=membership.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-outline-success btn-sm"
@@ -40,9 +51,16 @@
         {% endif %}
 
         {% if current_user.role.value == 'member' %}
+        {% if pending_payment %}
+        <button type="button" class="btn btn-outline-danger btn-sm"
+                data-bs-toggle="modal" data-bs-target="#cancelRequestModal">
+            <i class="fa-solid fa-ban me-1"></i>Cancel Request
+        </button>
+        {% else %}
         <a href="{{ url_for('payments.buy') }}" class="btn btn-outline-primary btn-sm">
             <i class="fa-solid fa-plus me-1"></i>Get Another Plan
         </a>
+        {% endif %}
         {% endif %}
     </div>
 </div>
@@ -89,6 +107,15 @@
                         <span class="badge bg-{{ membership.status_badge_class }}">{{ membership.status_label }}</span>
                     </dd>
 
+                    {% if pending_payment %}
+                    <dt class="col-sm-4">Bank Reference</dt>
+                    <dd class="col-sm-8">
+                        <span class="font-monospace">{{ pending_payment.reference_no or '—' }}</span>
+                        <a href="{{ url_for('payments.view_payment', payment_id=pending_payment.id) }}"
+                           class="small ms-2">View payment</a>
+                    </dd>
+                    {% endif %}
+
                     {% if membership.notes %}
                     <dt class="col-sm-4">Notes</dt>
                     <dd class="col-sm-8">{{ membership.notes }}</dd>
@@ -134,4 +161,90 @@
     </div>
     {% endif %}
 </div>
+
+{% if pending_payment %}
+<div class="modal fade" id="verifyPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Verify Bank Transfer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Confirm that <strong>LKR {{ '{:,.2f}'.format(pending_payment.amount) }}</strong>
+                    (Ref: <span class="font-monospace">{{ pending_payment.reference_no or '—' }}</span>)
+                    has been received. This activates the
+                    <strong>{{ membership.package.name }}</strong> membership.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('payments.verify_payment', payment_id=pending_payment.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa-solid fa-check me-1"></i>Confirm &amp; Activate
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rejectPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('payments.reject_payment', payment_id=pending_payment.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reject Bank Transfer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Reason for rejection <span class="text-danger">*</span></label>
+                    <textarea name="rejection_reason" class="form-control" rows="3" required
+                              placeholder="e.g. Reference number doesn't match any transaction, amount mismatch..."></textarea>
+                    <div class="form-text">The member will see this reason in an in-app notification.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-xmark me-1"></i>Reject &amp; Notify Member
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if pending_payment and current_user.role.value == 'member' %}
+<div class="modal fade" id="cancelRequestModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Membership Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Cancel your request for <strong>{{ membership.package.name }}</strong>?
+                    Your bank transfer submission (Ref:
+                    <span class="font-monospace">{{ pending_payment.reference_no or '—' }}</span>)
+                    will be withdrawn. You can submit a new one anytime.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep Request</button>
+                <form method="POST" action="{{ url_for('payments.cancel_request', payment_id=pending_payment.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-ban me-1"></i>Yes, Cancel Request
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

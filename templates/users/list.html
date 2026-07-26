@@ -92,9 +92,7 @@
                     <td class="text-muted" style="font-size:12px;">{{ u.id }}</td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
-                            <div class="user-avatar" style="flex-shrink:0;">
-                                {{ u.first_name[0] | upper }}{{ u.last_name[0] | upper }}
-                            </div>
+                            {{ avatar(u, 'user-avatar') }}
                             <div>
                                 <div class="fw-semibold" style="font-size:13.5px;">{{ u.full_name }}</div>
                                 <div class="text-muted" style="font-size:12px;">@{{ u.username }}</div>
@@ -117,7 +115,7 @@
                     </td>
                     <td class="text-muted" style="font-size:12px;">
                         {% if u.last_login %}
-                            {{ u.last_login.strftime('%d %b %Y %H:%M') }}
+                            {{ u.last_login | localdt('%d %b %Y %H:%M') }}
                         {% else %}
                             <span class="fst-italic">Never</span>
                         {% endif %}

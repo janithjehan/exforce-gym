@@ -1,10 +1,25 @@
 import re
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SelectField, BooleanField, SubmitField
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, Optional, Regexp, ValidationError)
 from app.extensions import db
 from app.models.user import User, UserRole
+from app.utils.uploads import ALLOWED_IMAGE_EXTENSIONS
 from app.utils.validators import validate_nic_format
+
+
+# User management only mints system/staff accounts. Members and Trainers are
+# created through their own modules (which build a proper gym profile) — creating
+# them here would leave an empty, half-populated profile behind.
+MANAGEABLE_ROLES = (UserRole.ADMIN, UserRole.MANAGER)
+
+
+def _photo_field():
+    return FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
+    )
 
 
 def _validate_password_strength(form, field):
@@ -46,10 +61,11 @@ class UserCreateForm(FlaskForm):
     nic_no = StringField('NIC Number', validators=[Optional(), Length(max=20), validate_nic_format])
     role = SelectField(
         'Role',
-        choices=[(r.value, r.label) for r in UserRole],
+        choices=[(r.value, r.label) for r in MANAGEABLE_ROLES],
         validators=[DataRequired()],
     )
     is_active = BooleanField('Active', default=True)
+    photo = _photo_field()
     # No password fields — the initial password is the NIC number
     submit = SubmitField('Create User')
 
@@ -89,11 +105,7 @@ class UserEditForm(FlaskForm):
     last_name = StringField('Last Name', validators=[DataRequired(), Length(max=80)])
     phone = StringField('Mobile Number', validators=[Optional(), Length(max=20)])
     nic_no = StringField('NIC Number', validators=[Optional(), Length(max=20), validate_nic_format])
-    role = SelectField(
-        'Role',
-        choices=[(r.value, r.label) for r in UserRole],
-        validators=[DataRequired()],
-    )
+    role = SelectField('Role', validators=[DataRequired()])
     is_active = BooleanField('Active')
     # Password optional on edit — blank = no change
     password = PasswordField(
@@ -108,11 +120,20 @@ class UserEditForm(FlaskForm):
         'Confirm New Password',
         validators=[Optional(), EqualTo('password', message='Passwords must match.')],
     )
+    photo = _photo_field()
+    remove_photo = BooleanField('Remove current photo')
     submit = SubmitField('Save Changes')
 
-    def __init__(self, user_id, *args, **kwargs):
+    def __init__(self, user_id, current_role=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._user_id = user_id
+        # Only Admin/Manager are assignable here. If this account is an existing
+        # Member/Trainer (created via their own module), keep its current role in
+        # the list so the form still renders and validates for that account.
+        roles = list(MANAGEABLE_ROLES)
+        if current_role and current_role not in [r.value for r in roles]:
+            roles.append(UserRole(current_role))
+        self.role.choices = [(r.value, r.label) for r in roles]
 
     def validate_username(self, field):
         existing = User.query.filter_by(username=field.data).first()

@@ -61,9 +61,7 @@
     <div class="col-lg-4">
         <div class="card">
             <div class="card-body text-center pt-4">
-                <div class="user-avatar user-avatar-lg mx-auto mb-3">
-                    {{ member.user.first_name[0] | upper }}{{ member.user.last_name[0] | upper }}
-                </div>
+                {{ avatar(member.user, 'user-avatar user-avatar-lg mx-auto mb-3') }}
                 <h5 class="fw-bold mb-1">{{ member.full_name }}</h5>
                 <div class="text-muted mb-1" style="font-size:13px;">@{{ member.username }}</div>
                 <div class="text-muted mb-3" style="font-size:12px;">{{ member.email }}</div>
@@ -256,8 +254,8 @@
                             <div>
                                 <div class="fw-semibold">{{ r.check_in.strftime('%d %b %Y') }}</div>
                                 <div class="text-muted small">
-                                    {{ r.check_in.strftime('%H:%M') }}
-                                    {% if r.check_out %}→ {{ r.check_out.strftime('%H:%M') }} ({{ r.duration_label }}){% endif %}
+                                    {{ r.check_in | localdt('%H:%M') }}
+                                    {% if r.check_out %}→ {{ r.check_out | localdt('%H:%M') }} ({{ r.duration_label }}){% endif %}
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-2">

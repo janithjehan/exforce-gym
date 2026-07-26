@@ -29,6 +29,8 @@ class User(db.Model, UserMixin):
     phone = db.Column(db.String(20), nullable=True)
     # Required (form-level) for MANAGER accounts; optional for other roles
     nic_no = db.Column(db.String(20), nullable=True)
+    # Profile photo — stored filename under app/static/uploads/avatars/
+    avatar_filename = db.Column(db.String(255), nullable=True)
 
     # Role & status
     role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.MEMBER)
@@ -89,6 +91,19 @@ class User(db.Model, UserMixin):
     @property
     def full_name(self):
         return f'{self.first_name} {self.last_name}'
+
+    @property
+    def avatar_url(self):
+        """Static-relative path for url_for('static', filename=...); None if unset."""
+        if not self.avatar_filename:
+            return None
+        return f'uploads/avatars/{self.avatar_filename}'
+
+    @property
+    def initials(self):
+        a = self.first_name[0] if self.first_name else ''
+        b = self.last_name[0] if self.last_name else ''
+        return (a + b).upper() or '?'
 
     @property
     def is_admin(self):

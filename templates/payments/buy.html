@@ -26,7 +26,55 @@
 </div>
 {% endif %}
 
-{% if packages %}
+{% if pending_membership %}
+{% set pending_payment = pending_membership.payments.first() %}
+<div class="alert alert-warning d-flex align-items-center gap-3 mb-4">
+    <i class="fa-solid fa-hourglass-half fa-lg"></i>
+    <div class="flex-grow-1">
+        Your bank transfer for <strong>{{ pending_membership.package.name }}</strong> is awaiting
+        verification by staff.
+        <a href="{{ url_for('memberships.view_membership', membership_id=pending_membership.id) }}">View status</a>
+    </div>
+    {% if pending_payment %}
+    <button type="button" class="btn btn-outline-danger btn-sm text-nowrap"
+            data-bs-toggle="modal" data-bs-target="#cancelRequestModal">
+        <i class="fa-solid fa-ban me-1"></i>Cancel Request
+    </button>
+    {% endif %}
+</div>
+
+{% if pending_payment %}
+<div class="modal fade" id="cancelRequestModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Membership Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Cancel your request for <strong>{{ pending_membership.package.name }}</strong>?
+                    Your bank transfer submission (Ref:
+                    <span class="font-monospace">{{ pending_payment.reference_no or '—' }}</span>)
+                    will be withdrawn. You can submit a new one anytime.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep Request</button>
+                <form method="POST" action="{{ url_for('payments.cancel_request', payment_id=pending_payment.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-ban me-1"></i>Yes, Cancel Request
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if packages and not pending_membership %}
 <!-- Step 1: Package Selection -->
 <h5 class="fw-semibold mb-3">
     <span class="badge bg-orange text-white me-2">1</span>Select a Package
@@ -113,8 +161,15 @@
                         <span class="fw-semibold">Total</span>
                         <span class="fw-bold fs-5 text-success" id="summary-amount">LKR —</span>
                     </div>
-                    <a href="#" id="checkout-btn" class="btn btn-primary w-100 btn-lg disabled">
-                        <i class="fa-solid fa-globe me-2"></i>Proceed to PayHere
+                    <a href="#" id="bank-transfer-btn" class="btn btn-primary w-100 btn-lg disabled">
+                        <i class="fa-solid fa-building-columns me-2"></i>Pay by Bank Transfer
+                    </a>
+                    <p class="text-muted small text-center mt-2 mb-0">
+                        Submit a reference number — activated once staff verify it.
+                    </p>
+                    <hr>
+                    <a href="#" id="checkout-btn" class="btn btn-outline-secondary w-100 disabled">
+                        <i class="fa-solid fa-globe me-2"></i>Pay Online with PayHere
                     </a>
                     <p class="text-muted small text-center mt-2 mb-0">
                         <i class="fa-solid fa-lock me-1"></i>Secured by PayHere
@@ -125,7 +180,7 @@
     </div>
 </div>
 
-{% else %}
+{% elif not pending_membership %}
 <div class="card">
     <div class="empty-state py-5">
         <i class="fa-solid fa-box-open d-block" style="font-size:36px;"></i>
@@ -193,6 +248,10 @@ function updateSummary() {
     const btn = document.getElementById('checkout-btn');
     btn.href = `/payments/checkout?package_id=${selected.id}&start_date=${startVal}`;
     btn.classList.remove('disabled');
+
+    const btBtn = document.getElementById('bank-transfer-btn');
+    btBtn.href = `/payments/bank-transfer?package_id=${selected.id}&start_date=${startVal}`;
+    btBtn.classList.remove('disabled');
 }
 </script>
 <style>

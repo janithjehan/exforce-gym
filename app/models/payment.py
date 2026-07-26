@@ -37,6 +37,27 @@ class PaymentMethod(enum.Enum):
         }[self.value]
 
 
+class PaymentStatus(enum.Enum):
+    """Verification state. Only member-submitted bank transfers start PENDING —
+    every other payment (cash/card entered by staff, PayHere) is final the
+    moment it's created, so they default straight to VERIFIED."""
+    PENDING = 'pending'
+    VERIFIED = 'verified'
+    REJECTED = 'rejected'
+
+    @property
+    def label(self):
+        return self.value.capitalize()
+
+    @property
+    def badge_class(self):
+        return {
+            'pending': 'warning',
+            'verified': 'success',
+            'rejected': 'danger',
+        }[self.value]
+
+
 class Payment(db.Model):
     __tablename__ = 'payments'
 
@@ -50,6 +71,15 @@ class Payment(db.Model):
     payment_date = db.Column(db.Date, nullable=False)
     reference_no = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+
+    # Member-submitted bank transfers start PENDING until an Admin/Manager
+    # verifies the reference number against the bank statement.
+    status = db.Column(
+        db.Enum(PaymentStatus), nullable=False, default=PaymentStatus.VERIFIED
+    )
+    verified_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)  # set when status == REJECTED
 
     # Audit
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -70,10 +100,15 @@ class Payment(db.Model):
     )
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     updated_by = db.relationship('User', foreign_keys=[updated_by_id])
+    verified_by = db.relationship('User', foreign_keys=[verified_by_id])
     edit_logs = db.relationship(
         'PaymentEditLog', backref='payment', lazy='dynamic',
         order_by='PaymentEditLog.created_at.desc()'
     )
+
+    @property
+    def is_pending_verification(self):
+        return self.status == PaymentStatus.PENDING
 
     def __repr__(self):
         return f'<Payment id={self.id} member={self.member_id} amount={self.amount}>'

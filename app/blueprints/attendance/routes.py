@@ -10,6 +10,7 @@ from app.models.member import Member
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.timezones import to_utc
 
 ATTENDANCE_PER_PAGE = 20
 
@@ -93,10 +94,12 @@ def create_attendance():
             flash('Check-out time must be after check-in time.', 'danger')
             return render_template('attendance/create.html', form=form, title='Record Attendance')
 
+        # Staff enter times in local (Sri Lanka) time; persist as UTC like
+        # everything else (checkout uses utcnow, displays convert back).
         record = Attendance(
             member_id=form.member_id.data,
-            check_in=form.check_in.data,
-            check_out=check_out,
+            check_in=to_utc(form.check_in.data),
+            check_out=to_utc(check_out),
             notes=form.notes.data.strip() or None,
             created_by_id=current_user.id,
         )

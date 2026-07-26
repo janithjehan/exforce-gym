@@ -56,9 +56,7 @@
     <div class="col-lg-4">
         <div class="card">
             <div class="card-body text-center pt-4">
-                <div class="user-avatar user-avatar-lg mx-auto mb-3">
-                    {{ user.first_name[0] | upper }}{{ user.last_name[0] | upper }}
-                </div>
+                {{ avatar(user, 'user-avatar user-avatar-lg mx-auto mb-3') }}
                 <h5 class="fw-bold mb-1">{{ user.full_name }}</h5>
                 <div class="text-muted mb-2" style="font-size:13px;">@{{ user.username }}</div>
                 <span class="badge
@@ -98,7 +96,7 @@
                         <span class="text-muted"><i class="fa-solid fa-clock fa-fw me-2"></i>Last Login</span>
                         <span>
                             {% if user.last_login %}
-                                {{ user.last_login.strftime('%d %b %Y %H:%M') }}
+                                {{ user.last_login | localdt('%d %b %Y %H:%M') }}
                             {% else %}
                                 <span class="fst-italic text-muted">Never</span>
                             {% endif %}
@@ -169,7 +167,7 @@
                             <td class="text-muted" style="font-size:12.5px;">{{ log.ip_address or '—' }}</td>
                             <td class="text-muted" style="font-size:12.5px;">{{ log.details or '—' }}</td>
                             <td class="text-muted" style="font-size:12px; white-space:nowrap;">
-                                {{ log.timestamp.strftime('%d %b %Y %H:%M:%S') }}
+                                {{ log.timestamp | localdt('%d %b %Y %H:%M:%S') }}
                             </td>
                         </tr>
                         {% endfor %}

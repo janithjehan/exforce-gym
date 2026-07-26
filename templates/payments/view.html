@@ -14,12 +14,23 @@
         <h2>Payment #{{ payment.id }}</h2>
         <p>
             <span class="badge bg-{{ payment.method.badge_class }}">{{ payment.method.label }}</span>
+            <span class="badge bg-{{ payment.status.badge_class }}">{{ payment.status.label }}</span>
             &nbsp;{{ payment.member.full_name }} &middot; LKR {{ '{:,.2f}'.format(payment.amount) }}
         </p>
     </div>
-    <a href="{{ url_for('payments.edit_payment', payment_id=payment.id) }}" class="btn btn-outline-primary btn-sm">
-        <i class="fa-solid fa-pen me-1"></i>Edit Payment
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if payment.is_pending_verification %}
+        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#verifyPaymentModal">
+            <i class="fa-solid fa-check me-1"></i>Verify
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectPaymentModal">
+            <i class="fa-solid fa-xmark me-1"></i>Reject
+        </button>
+        {% endif %}
+<!--        <a href="{{ url_for('payments.edit_payment', payment_id=payment.id) }}" class="btn btn-outline-primary btn-sm">-->
+<!--            <i class="fa-solid fa-pen me-1"></i>Edit Payment-->
+<!--        </a>-->
+    </div>
 </div>
 
 <div class="row g-4">
@@ -71,6 +82,11 @@
                     <dt class="col-sm-4">Notes</dt>
                     <dd class="col-sm-8" style="white-space:pre-line;">{{ payment.notes }}</dd>
                     {% endif %}
+
+                    {% if payment.rejection_reason %}
+                    <dt class="col-sm-4">Rejection Reason</dt>
+                    <dd class="col-sm-8 text-danger" style="white-space:pre-line;">{{ payment.rejection_reason }}</dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -87,12 +103,18 @@
                 </div>
                 <div class="d-flex justify-content-between py-1 border-bottom">
                     <span class="text-muted">Recorded at</span>
-                    <span>{{ payment.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                    <span>{{ payment.created_at | localdt('%d %b %Y %H:%M') }}</span>
                 </div>
                 {% if payment.updated_by %}
-                <div class="d-flex justify-content-between py-1">
+                <div class="d-flex justify-content-between py-1 {% if not payment.verified_by %}border-bottom{% endif %}">
                     <span class="text-muted">Last updated by</span>
                     <span>{{ payment.updated_by.full_name }}</span>
+                </div>
+                {% endif %}
+                {% if payment.verified_by %}
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">{{ payment.status.label }} by</span>
+                    <span>{{ payment.verified_by.full_name }} &middot; {{ payment.verified_at | localdt('%d %b %Y %H:%M') }}</span>
                 </div>
                 {% endif %}
             </div>
@@ -110,7 +132,7 @@
                     <li class="list-group-item px-4 py-3">
                         <div class="d-flex justify-content-between mb-1">
                             <span class="fw-semibold text-capitalize">{{ log.field_name.replace('_', ' ') }}</span>
-                            <span class="text-muted small">{{ log.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                            <span class="text-muted small">{{ log.created_at | localdt('%d %b %Y %H:%M') }}</span>
                         </div>
                         <div class="text-muted small">
                             <span class="text-danger font-monospace">{{ log.old_value or '—' }}</span>
@@ -130,4 +152,62 @@
         </div>
     </div>
 </div>
+
+{% if payment.is_pending_verification %}
+<div class="modal fade" id="verifyPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Verify Bank Transfer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Confirm that <strong>LKR {{ '{:,.2f}'.format(payment.amount) }}</strong>
+                    (Ref: <span class="font-monospace">{{ payment.reference_no or '—' }}</span>)
+                    has been received.
+                    {% if payment.membership %}
+                    This activates the <strong>{{ payment.membership.package.name }}</strong> membership.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('payments.verify_payment', payment_id=payment.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa-solid fa-check me-1"></i>Confirm &amp; Activate
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rejectPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('payments.reject_payment', payment_id=payment.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reject Bank Transfer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Reason for rejection <span class="text-danger">*</span></label>
+                    <textarea name="rejection_reason" class="form-control" rows="3" required
+                              placeholder="e.g. Reference number doesn't match any transaction, amount mismatch..."></textarea>
+                    <div class="form-text">The member will see this reason in an in-app notification.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa-solid fa-xmark me-1"></i>Reject &amp; Notify Member
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
