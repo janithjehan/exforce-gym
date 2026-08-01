@@ -119,6 +119,31 @@ def view_member(member_id):
     return render_template('members/view.html', member=member, title=member.full_name)
 
 
+@members_bp.route('/<int:member_id>/qr-card')
+@admin_or_manager_required
+def qr_card(member_id):
+    """Printable QR card for the attendance-scan kiosk. The QR encodes the
+    member's plain numeric id — the same id the scan endpoint looks up
+    against Member.id (see app/blueprints/attendance/routes.py: scan_submit)."""
+    member = Member.query.get_or_404(member_id)
+
+    import io
+    import base64
+    import qrcode
+
+    qr_img = qrcode.make(str(member.id), border=2)
+    buf = io.BytesIO()
+    qr_img.save(buf, format='PNG')
+    qr_data_uri = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
+
+    return render_template(
+        'members/qr_card.html',
+        member=member,
+        qr_data_uri=qr_data_uri,
+        title=f'{member.full_name} — QR Card',
+    )
+
+
 @members_bp.route('/<int:member_id>/edit', methods=['GET', 'POST'])
 @admin_or_manager_required
 def edit_member(member_id):

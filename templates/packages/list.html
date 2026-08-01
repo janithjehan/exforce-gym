@@ -104,7 +104,14 @@
                             {% endif %}
                         </td>
                         <td>{{ pkg.duration_label }}</td>
-                        <td>{{ '{:,.2f}'.format(pkg.price) }}</td>
+                        <td>
+                            {{ '{:,.2f}'.format(pkg.price) }}
+                            {% if pkg.installment_options_list %}
+                            <span class="badge bg-info text-dark ms-1" title="Installments offered">
+                                <i class="fa-solid fa-layer-group"></i>
+                            </span>
+                            {% endif %}
+                        </td>
                         <td>
                             <span class="badge bg-{{ pkg.status_badge_class }}">{{ pkg.status_label }}</span>
                         </td>

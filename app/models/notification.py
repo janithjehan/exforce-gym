@@ -9,6 +9,7 @@ class NotificationAudience(enum.Enum):
     EXPIRING_SOON = 'expiring_soon'
     SINGLE_MEMBER = 'single_member'  # system-generated, one specific member (e.g. payment rejection)
     SINGLE_TRAINER = 'single_trainer'  # system-generated, one specific trainer (e.g. new trainer request)
+    SINGLE_STAFF = 'single_staff'  # system-generated, one specific staff member (e.g. payroll paid)
     ALL_ADMINS = 'all_admins'
     ALL_MANAGERS = 'all_managers'
     ALL_TRAINERS = 'all_trainers'
@@ -23,6 +24,7 @@ class NotificationAudience(enum.Enum):
             'expiring_soon': 'Expiring Within 30 Days',
             'single_member': 'Direct Notice',
             'single_trainer': 'Direct Notice (Trainer)',
+            'single_staff': 'Direct Notice (Staff)',
             'all_admins': 'All Admins',
             'all_managers': 'All Managers',
             'all_trainers': 'All Trainers',

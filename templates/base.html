@@ -122,9 +122,16 @@
         </li>
         <li class="nav-item">
             <a href="{{ url_for('attendance.list_attendance') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') %}active{% endif %}">
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') and request.endpoint != 'attendance.scan_kiosk' %}active{% endif %}">
                 <i class="fa-solid fa-person-walking"></i>
                 Attendance
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('attendance.scan_kiosk') }}"
+               class="nav-link {% if request.endpoint == 'attendance.scan_kiosk' %}active{% endif %}">
+                <i class="fa-solid fa-qrcode"></i>
+                Scan Attendance
             </a>
         </li>
         <li class="nav-item">
@@ -269,9 +276,16 @@
         </li>
         <li class="nav-item">
             <a href="{{ url_for('attendance.list_attendance') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') %}active{% endif %}">
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') and request.endpoint != 'attendance.scan_kiosk' %}active{% endif %}">
                 <i class="fa-solid fa-person-walking"></i>
                 Attendance
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('attendance.scan_kiosk') }}"
+               class="nav-link {% if request.endpoint == 'attendance.scan_kiosk' %}active{% endif %}">
+                <i class="fa-solid fa-qrcode"></i>
+                Scan Attendance
             </a>
         </li>
         <li class="nav-item">
@@ -374,9 +388,16 @@
         </li>
         <li class="nav-item">
             <a href="{{ url_for('attendance.list_attendance') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') %}active{% endif %}">
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') and request.endpoint != 'attendance.scan_kiosk' %}active{% endif %}">
                 <i class="fa-solid fa-person-walking"></i>
                 Attendance
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('attendance.scan_kiosk') }}"
+               class="nav-link {% if request.endpoint == 'attendance.scan_kiosk' %}active{% endif %}">
+                <i class="fa-solid fa-qrcode"></i>
+                Scan Attendance
             </a>
         </li>
         <li class="nav-item">

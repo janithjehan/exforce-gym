@@ -11,7 +11,7 @@
 - FR-USR-04: Admin activate/deactivate users
 
 ### Models
-- `User` (users table): id, username, email, password_hash, first_name, last_name, phone, role (enum), is_active, is_archived, last_login, created_at, updated_at, created_by_id, updated_by_id
+- `User` (users table) — see app/models/user.py for fields
 - `UserRole` enum: ADMIN, MANAGER, TRAINER, MEMBER
 - `LoginActivityLog`: tracks LOGIN, LOGOUT, FAILED_LOGIN, PASSWORD_CHANGED, ACCOUNT_ACTIVATED, ACCOUNT_DEACTIVATED
 
@@ -60,8 +60,7 @@
 - FR-MEM-02: `is_active_member` property ready — lazy-imports Membership model; returns False until Membership module is built
 - FR-MEM-03: Soft delete via `is_archived`; only Admin can archive; also deactivates the User account
 
-### Model: Member (members table)
-Fields: id, user_id (FK users, unique), contact_no, address, join_date, date_of_birth, gender (enum: MALE/FEMALE/OTHER), emergency_contact_name, emergency_contact_no, notes, is_archived, created_by_id, updated_by_id, created_at, updated_at
+### Model: Member (members table) — see app/models/member.py for fields
 - One-to-one with User via `user.member_profile` backref (lazy='joined')
 - `is_active_member` — lazy-imports Membership model; returns False until Membership module is built
 - `is_profile_complete` — True if contact_no is non-empty
@@ -94,8 +93,7 @@ Fields: id, user_id (FK users, unique), contact_no, address, join_date, date_of_
 - FR-PKG-02: All create/modify routes protected by `@admin_required`
 - FR-PKG-03: `is_active` flag — inactive packages blocked at assignment time (enforced in Membership module)
 
-### Model: Package (packages table)
-Fields: id, name, duration_months (int), price (Numeric 10,2), description, is_active, is_archived, created_by_id, updated_by_id, created_at, updated_at
+### Model: Package (packages table) — see app/models/package.py for fields
 - `duration_label` — human-readable label from DURATION_CHOICES
 - `status_label` / `status_badge_class` — for template badges
 
@@ -109,17 +107,6 @@ Fields: id, name, duration_months (int), price (Numeric 10,2), description, is_a
 
 ---
 
-## Registered Blueprints (app/__init__.py)
-| Prefix       | Blueprint      | Auth        |
-|--------------|----------------|-------------|
-| /auth        | auth_bp        | Public      |
-| /users       | users_bp       | Admin only  |
-| /members     | members_bp     | Admin/Member|
-| /packages    | packages_bp    | Admin only  |
-| /dashboard   | dashboard_bp   | Any logged-in|
-
----
-
 ## SRS 3.4 — Membership Module (Completed)
 
 ### SRS Requirements Covered
@@ -127,8 +114,7 @@ Fields: id, name, duration_months (int), price (Numeric 10,2), description, is_a
 - FR-MSHIP-02: Blocked at create time if member already has ACTIVE membership with end_date >= today
 - FR-MSHIP-03: Renew sets new start_date = current.end_date + 1 day (extends from end, not today)
 
-### Model: Membership (memberships table)
-Fields: id, member_id (FK members), package_id (FK packages), start_date, end_date, status (enum), notes, created_by_id, updated_by_id, created_at, updated_at
+### Model: Membership (memberships table) — see app/models/membership.py for fields
 - `MembershipStatus` enum: ACTIVE, EXPIRED, CANCELLED
 - `is_currently_active` — status==ACTIVE and end_date >= today
 - `days_remaining` — days until end_date (0 if not active)
@@ -158,10 +144,9 @@ Fields: id, member_id (FK members), package_id (FK packages), start_date, end_da
 - FR-PAY-02: PaymentMethod enum: CASH, CARD, BANK_TRANSFER, ONLINE — each with label, badge_class, icon
 - FR-PAY-03: Editing restricted to Admin; every changed field logged to PaymentEditLog (who/when/old/new)
 
-### Models
-- `Payment` (payments table): id, member_id (FK), membership_id (FK nullable), amount (Numeric 10,2), method (enum), payment_date, reference_no, notes, created_by_id, updated_by_id, created_at, updated_at
+### Models — see app/models/payment.py for fields
 - `PaymentMethod` enum: CASH/CARD/BANK_TRANSFER/ONLINE — has `.label`, `.badge_class`, `.icon`
-- `PaymentEditLog` (payment_edit_logs table): id, payment_id, edited_by_id, field_name, old_value, new_value, created_at
+- `PaymentEditLog` (payment_edit_logs table) — same file
 
 ### Payments Blueprint (/payments) — Admin Only
 - GET `/payments/` — list with search (member name/ref) + method filter + month filter + pagination (20/page); stats: total, total revenue, this-month count + revenue
@@ -225,8 +210,7 @@ Member picks package + start date (`/payments/buy`) → order summary + hidden P
 - FR-ATT-03: Admin and Trainer can record/list all attendance; Members view own only
 - FR-ATT-04: List with date filter, member name search, pagination (20/page)
 
-### Model: Attendance (attendances table)
-Fields: id, member_id (FK members), check_in (DateTime), check_out (DateTime nullable), notes, created_by_id, updated_by_id, created_at, updated_at
+### Model: Attendance (attendances table) — see app/models/attendance.py for fields
 - `is_checked_out` — bool
 - `duration_minutes` — int or None
 - `duration_label` — "2h 30m" format
@@ -248,20 +232,6 @@ Fields: id, member_id (FK members), check_in (DateTime), check_out (DateTime nul
 
 ---
 
-## Registered Blueprints (app/__init__.py)
-| Prefix         | Blueprint        | Auth                     |
-|----------------|------------------|--------------------------|
-| /auth          | auth_bp          | Public                   |
-| /users         | users_bp         | Admin only               |
-| /members       | members_bp       | Admin/Member             |
-| /packages      | packages_bp      | Admin only               |
-| /memberships   | memberships_bp   | Admin/Member-own         |
-| /payments      | payments_bp      | Admin only               |
-| /attendance    | attendance_bp    | Admin+Trainer / Member-own |
-| /dashboard     | dashboard_bp     | Any logged-in            |
-
----
-
 ## SRS 3.7 — Trainer Module (Completed)
 
 ### SRS Requirements Covered
@@ -270,8 +240,7 @@ Fields: id, member_id (FK members), check_in (DateTime), check_out (DateTime nul
 - FR-TRN-03: Admin manages all profiles; Trainer can view own only (403 guard)
 - FR-TRN-04: Auto-creation — when a TRAINER-role User is created via users/create, a basic Trainer profile is automatically generated
 
-### Model: Trainer (trainers table)
-Fields: id, user_id (FK users, unique), specialization, bio, experience_years, certifications, contact_no, is_archived, created_by_id, updated_by_id, created_at, updated_at
+### Model: Trainer (trainers table) — see app/models/trainer.py for fields
 - `full_name`, `email`, `username` — delegated to User
 - `is_profile_complete` — True if specialization is set
 - `status_label` / `status_badge_class` — based on is_archived + user.is_active
@@ -290,25 +259,6 @@ Fields: id, user_id (FK users, unique), specialization, bio, experience_years, c
 - Admin dashboard: Trainers = Live in module status; View Trainers quick action added
 - Trainer dashboard: replaced placeholder with real profile card (specialization, bio, experience, certifications); account sidebar updated
 - Sidebar: Trainers nav link activated for Admin; My Profile link added for Trainer section
-
----
-
-## Registered Blueprints (app/__init__.py)
-| Prefix         | Blueprint        | Auth                              |
-|----------------|------------------|-----------------------------------|
-| /auth          | auth_bp          | Public                            |
-| /users         | users_bp         | Admin only                        |
-| /members       | members_bp       | Admin+Manager / Member-own        |
-| /packages      | packages_bp      | Admin+Manager                     |
-| /memberships   | memberships_bp   | Admin+Manager / Member-own        |
-| /payments      | payments_bp      | Admin+Manager                     |
-| /attendance    | attendance_bp    | Admin+Manager+Trainer / Member-own |
-| /trainers      | trainers_bp      | Admin+Manager / Trainer-own       |
-| /workouts      | workouts_bp      | Admin+Trainer                     |
-| /schedules     | schedules_bp     | Admin+Trainer manage, Manager view, Member-own |
-| /measurements  | measurements_bp  | Admin full / Member-own only      |
-| /feedback      | feedback_bp      | Admin manage / Member submit+own  |
-| /dashboard     | dashboard_bp     | Any logged-in                     |
 
 ---
 
@@ -356,9 +306,8 @@ Manager owns the **gym floor** (operations). Admin owns the **system** (accounts
 - FR-NOT-03: `flask send-expiry-reminders` CLI — auto-notifies members expiring within 30 days (skips anyone reminded in the last 30 days); run as a scheduled task
 - FR-NOT-04: In-app delivery, always sent to every resolved recipient
 
-### Models (app/models/notification.py)
-- `Notification` (notifications): id, title, message, audience (enum), package_id (FK nullable), is_auto, recipient_count, sent_at, created_by_id, created_at
-- `NotificationLog` (notification_logs): per-recipient in-app delivery record — notification_id, member_id, is_read, read_at, created_at
+### Models (app/models/notification.py) — see file for fields
+- `NotificationLog` (notification_logs) — per-recipient in-app delivery record, read tracking
 - Enum: `NotificationAudience` (ALL_ACTIVE/PACKAGE/EXPIRING_SOON)
 
 ### Service Layer (app/blueprints/notifications/service.py)
@@ -402,8 +351,7 @@ Manager owns the **gym floor** (operations). Admin owns the **system** (accounts
 - FR-WRK-01: Metadata — difficulty level (enum) + equipment_needed (free text, empty = bodyweight)
 - FR-WRK-02: All routes protected by `@admin_or_trainer_required` (create/update restricted to Admin/Trainer per SRS)
 
-### Model: Workout (workouts table) — app/models/workout.py
-Fields: id, name, workout_type (enum), muscle_group (enum), difficulty (enum), equipment_needed (200, nullable), instructions (Text), is_active, is_archived, created_by_id, updated_by_id, created_at, updated_at
+### Model: Workout (workouts table) — app/models/workout.py, see file for fields
 - Enums: `WorkoutType` (STRENGTH/CARDIO/FLEXIBILITY/BALANCE/ENDURANCE), `MuscleGroup` (CHEST/BACK/SHOULDERS/BICEPS/TRICEPS/LEGS/GLUTES/CORE/FULL_BODY), `DifficultyLevel` (BEGINNER/INTERMEDIATE/ADVANCED, has badge_class)
 - `equipment_label` — equipment_needed or 'None (bodyweight)'
 - `status_label` / `status_badge_class` — same pattern as Package
@@ -431,13 +379,13 @@ Fields: id, name, workout_type (enum), muscle_group (enum), difficulty (enum), e
 - FR-SCH-02: Versioning — every edit bumps `Schedule.version` and writes a `ScheduleEditLog` row (editor, version, change summary); shown as Edit History on the view page (staff only)
 - FR-SCH-03: Members view-only + can mark own schedule completed; PDF download for assigned member
 
-### Models (app/models/schedule.py)
-- `Schedule` (schedules): id, member_id (FK), trainer_id (FK), title, start_date, end_date, status (enum), notes, version, audit fields
+### Models (app/models/schedule.py) — see file for fields
+- `Schedule` (schedules)
   - `ScheduleStatus` enum: PLANNED/COMPLETED/CANCELLED (label + badge_class)
   - `is_current` — PLANNED and today within range; `date_range_label`
   - Member.schedules / Trainer.schedules dynamic backrefs
-- `ScheduleItem` (schedule_items): schedule_id, workout_id (FK workouts), day_label (e.g. "Monday"/"Day 1"), sets, reps (string, allows "8-12"), rest_seconds, notes, sort_order; `rest_label` ("2 min"/"90 sec"); cascade delete-orphan from Schedule.items
-- `ScheduleEditLog` (schedule_edit_logs): schedule_id, edited_by_id, version, summary, created_at
+- `ScheduleItem` (schedule_items) — `rest_label` ("2 min"/"90 sec"); cascade delete-orphan from Schedule.items
+- `ScheduleEditLog` (schedule_edit_logs)
 
 ### Schedules Blueprint (/schedules)
 - GET `/schedules/` — Admin+Manager+Trainer; planned/completed/cancelled/all tabs + member/title search + stats + pagination (15/page)
@@ -468,8 +416,7 @@ Fields: id, name, workout_type (enum), muscle_group (enum), difficulty (enum), e
 - FR-EQP-02: Admin+Manager+Trainer can view; only Admin can create/update/archive
 - FR-EQP-03: Equipment library visible to Trainers for schedule planning
 
-### Model: Equipment (equipments table) — app/models/equipment.py
-Fields: id, name, category (enum), image_filename (nullable), quantity (int, default 1), status (enum), notes (Text), is_archived, created_by_id, updated_by_id, created_at, updated_at
+### Model: Equipment (equipments table) — app/models/equipment.py, see file for fields
 - Enums: `EquipmentCategory` (CARDIO/STRENGTH_MACHINE/FREE_WEIGHTS/FUNCTIONAL/ACCESSORIES/OTHER), `EquipmentStatus` (AVAILABLE/OUT_OF_SERVICE, has label + badge_class)
 - `image_path` — static-relative path (`uploads/equipment/<file>`) for url_for('static', ...); None if no image
 - `is_available`, `status_label`, `status_badge_class` — same pattern as Workout (Archived overrides)
@@ -500,8 +447,7 @@ Fields: id, name, category (enum), image_filename (nullable), quantity (int, def
 - FR-SUP-01: Name, Type (Creatine/Protein/Other), Brand, Price (optional), Stock Qty (optional), Status
 - FR-SUP-02: Only Admin manages (Manager can view staff list); members view catalog when `SUPPLEMENTS_MEMBER_VIEW` config flag is enabled (default True; env-overridable, catalog 404s when disabled)
 
-### Model: Supplement (supplements table) — app/models/supplement.py
-Fields: id, name, supplement_type (enum), brand (nullable), price (Numeric 10,2, nullable), stock_qty (int, nullable — None = not tracked), status (enum), description (Text), is_archived, audit fields
+### Model: Supplement (supplements table) — app/models/supplement.py, see file for fields
 - Enums: `SupplementType` (CREATINE/PROTEIN/OTHER), `SupplementStatus` (AVAILABLE/OUT_OF_STOCK/DISCONTINUED, has label + badge_class)
 - `price_label` ('Rs. 4,500.00' or '—'), `stock_label`, `is_stock_tracked`, `status_label`/`status_badge_class` (Archived overrides)
 
@@ -528,12 +474,12 @@ Fields: id, name, supplement_type (enum), brand (nullable), price (Numeric 10,2,
 - FR-MEAS-02: Access = Admin + owning Member ONLY (no Manager/Trainer); enforced by `_can_access()` helper on view/edit
 - FR-MEAS-03: No delete/archive routes exist; every edit logs changed fields to `MeasurementEditLog` (who/when/old/new), shown as Edit History on view page
 
-### Models (app/models/measurement.py)
-- `Measurement` (measurements): id, member_id (FK), measured_on (Date), weight_kg/height_cm/chest_cm/waist_cm/hips_cm/arms_cm/thighs_cm (Numeric(5,2), all nullable), notes, audit fields
+### Models (app/models/measurement.py) — see file for fields
+- `Measurement` (measurements)
   - `VALUE_FIELDS` class constant — list of (attr, label, unit); drives forms, diff detection, and template value grids
   - `recorded_values` — (label, value, unit) list of non-null fields; `bmi` — computed when weight+height present; `was_edited`
   - Member.measurements — dynamic backref ordered by measured_on desc
-- `MeasurementEditLog` (measurement_edit_logs): measurement_id, edited_by_id, field_name, old_value, new_value, created_at — same pattern as PaymentEditLog
+- `MeasurementEditLog` (measurement_edit_logs) — same pattern as PaymentEditLog
 
 ### Measurements Blueprint (/measurements) — Admin full, Member own-only
 - GET `/measurements/` — Admin only; member name/email search + stats (total, members tracked, this month) + pagination (15/page)
@@ -562,8 +508,7 @@ Fields: id, name, supplement_type (enum), brand (nullable), price (Numeric 10,2,
 - FR-FDB-03: `/feedback/export` — Admin CSV report, honours current list filters (status/category/search)
 - FR-FDB-04: `submit_feedback` blocked unless `member.is_active_member` (flash + redirect); submit button also hidden in UI when inactive
 
-### Models (app/models/feedback.py)
-- `Feedback` (feedbacks): id, member_id (FK), category (enum nullable), rating (int 1–5), comments (Text), status (enum, default NEW), admin_response (Text nullable), responded_by_id (FK users), responded_at, created_at, updated_at
+### Models (app/models/feedback.py) — see file for fields
 - Enums: `FeedbackCategory` (SERVICE/TRAINERS/FACILITY/EQUIPMENT/OTHER), `FeedbackStatus` (NEW/REVIEWED/RESOLVED — label + badge_class: primary/warning/success)
 - `category_label` ('General' when category is None), `has_response`; Member.feedbacks dynamic backref
 
@@ -637,8 +582,8 @@ No rate-limiting on `/auth/forgot-password` (no rate-limit infra exists anywhere
 ### Scope
 Salary records for **Admin, Manager, and Trainer** — Members are not payroll subjects. Manual entry per pay period (no auto-recurring salary/generation); a "remembered base salary" field would be a natural v2 addition.
 
-### Model (app/models/payroll.py)
-- `Payroll` (payroll table): `user_id` (FK users — staff being paid, restricted at the form level to ADMIN/MANAGER/TRAINER), `pay_period` (Date, normalized to the 1st of the month), `gross_amount`, `bonus`, `deductions` (all Numeric 10,2), `status` (enum `PayrollStatus`: PENDING/PAID/CANCELLED), `method` (enum `PayrollMethod`: CASH/BANK_TRANSFER/CHEQUE — set only when marked paid), `payment_date` (set only when marked paid), `notes`, audit fields
+### Model (app/models/payroll.py) — see file for fields
+- `Payroll` (payroll table) — `pay_period` normalized to the 1st of the month; `status` PENDING/PAID/CANCELLED; `method` set only when marked paid
 - `net_amount` property = gross + bonus − deductions; `period_label` = e.g. "July 2026"
 - No DB-level unique constraint on (user_id, pay_period) — duplicate PENDING/PAID records for the same staff+month are blocked at the route level instead, so a CANCELLED record doesn't permanently block that month
 - `PayrollEditLog` — same audit pattern as `PaymentEditLog` (one row per changed field on edit)
@@ -892,6 +837,247 @@ ALTER TYPE notificationaudience ADD VALUE IF NOT EXISTS 'SINGLE_TRAINER';  -- ou
 ### Not done (possible follow-ups)
 - Member dashboard / My Profile still don't surface the assigned trainer (only the new My Trainer page does).
 - Schedules aren't restricted to a trainer's accepted members (any trainer can still schedule any member) — the assignment is informational, not an access gate.
+
+---
+
+## Payroll → Expenses Link (Added 2026-07-27)
+
+### Design decision
+Marking a Payroll record PAID now auto-creates a matching Expense record, so the Expenses module (and the Profit Report) reflect the real cost of running the gym — salaries are a cash outflow like rent/utilities and were previously invisible to both. Trigger point is **mark-paid**, not creation, since that's the moment money actually left the business (mirrors how Payment/Membership verification already treats staff-confirmed state changes over trust-on-submission).
+
+### Model changes (app/models/expense.py)
+- New `ExpenseCategory.SALARY` value (label "Salary", badge_class `success`).
+- `Expense.payroll_id` — nullable, unique FK to `payroll.id`; set only on auto-generated rows. `payroll` relationship with `backref='expense'` (one-to-one, `uselist=False`). `Expense.is_payroll_generated` property (`payroll_id is not None`).
+- **Locked**: `edit_expense`/`archive_expense` (`app/blueprints/expenses/routes.py`) both reject payroll-generated expenses with a flash + redirect back to the view page — keeps the two records from drifting apart. Since a PAID Payroll record can't itself be edited/cancelled (PENDING-only guard, pre-existing), there's no reversal path to build.
+
+### Payroll routes (app/blueprints/payroll/routes.py)
+`mark_paid()` — after flipping the record to PAID, creates one `Expense(category=SALARY, amount=record.net_amount, expense_date=record.payment_date, payroll_id=record.id, ...)` in the same commit.
+
+### Reports (app/blueprints/reports/routes.py) — double-counting guard
+`profit_report()` already summed PAID payroll separately (`payroll_expense_total`) from all Expenses (`other_expense_total`). Both `other_expense_total` and `expense_by_category` now filter `Expense.payroll_id.is_(None)` — without this, every payroll payout would be counted twice in `expense_total` (once as payroll, once as an Expense row). The "Other Expenses by Category" panel is unaffected in meaning — it already excluded payroll conceptually, this just keeps it true in practice.
+
+### Templates
+- `expenses/view.html` — Edit/Archive buttons hidden for payroll-generated rows; shows a "View Payroll Record" button + an info alert linking back to the source Payroll record instead.
+- `expenses/list.html` — lock icon next to the description for payroll-generated rows; subtitle updated to mention salaries are now included.
+- `payroll/view.html` — PAID records show a link to the generated Expense record (admin-only — Expenses stays `@admin_required`, so the link is gated on `current_user.is_admin`, not the broader `has_list_access` which also covers Manager).
+
+### DB migration (manual — no Alembic)
+```sql
+ALTER TABLE expenses ADD COLUMN payroll_id INTEGER REFERENCES payroll(id);
+ALTER TABLE expenses ADD CONSTRAINT expenses_payroll_id_key UNIQUE (payroll_id);
+ALTER TYPE expensecategory ADD VALUE 'SALARY';  -- outside a txn block
+```
+**Gotcha:** this project's `db.Enum(PythonEnum)` columns store the Python enum **member name** (e.g. `RENT`, `SALARY`), not `.value` (`rent`, `salary`) — confirmed from existing rows. A stray lowercase `'salary'` value was mistakenly added to the `expensecategory` Postgres enum type before catching this; it's harmless (the app only ever writes `'SALARY'`) but Postgres has no `DROP VALUE` for enums, so it's permanently there as dead label. Double-check casing against existing enum rows before adding new Postgres enum values by hand.
+
+### Payroll-paid notification (Added 2026-07-27)
+`mark_paid()` also fires an in-app notice to the staff member being paid (Admin/Manager/Trainer — whoever the record belongs to), so they know their salary landed, not just that it's logged internally. Mirrors the `_notify_member_of_rejection`/`_notify_member_of_activation` pattern in `payments/routes.py`: build `Notification`, flush, `dispatch_notification(notification, [record.user])`, commit — fired after the payroll+expense commit succeeds, not inside the same transaction.
+- New `NotificationAudience.SINGLE_STAFF` ('single_staff', label "Direct Notice (Staff)") — programmatic-only, same as `SINGLE_MEMBER`/`SINGLE_TRAINER`; not added to the compose form's hardcoded audience choices.
+- `_notify_staff_of_payroll_paid(record)` in `app/blueprints/payroll/routes.py` — message quotes period, net amount, method, payment date; `link_url` points at `payroll.view_payroll` (the staff member can view their own record even without list access, per the existing `is_staff_self` guard on that route).
+- DB: `ALTER TYPE notificationaudience ADD VALUE IF NOT EXISTS 'SINGLE_STAFF';` (outside a txn block).
+
+---
+
+## Package Installments (Added 2026-07-27)
+
+### Design decision
+Installments are opt-in per Package from a global menu, and collected exclusively through the
+existing bank-transfer-held-for-verification flow — not PayHere, which has no recurring/split
+API in use here. Membership access is granted in full for the entire package duration the moment
+installment #1 is verified (mirrors the existing "full access upfront" bank-transfer behavior);
+later installments are purely a collection/reminder concern and never gate or suspend access.
+
+### Configuration (app/models/configuration.py)
+- `AppConfiguration.installment_options` — CSV string of globally allowed installment counts, e.g.
+  `"2,3,4,6,12"`. A count of 1 is never stored (that's just paying in full).
+- `AppConfiguration.parse_installment_options(raw)` (staticmethod) — parses/validates/sorts a CSV
+  string into a list of ints >= 2; shared by the Configuration form and `Package.installment_options_list`.
+- `/configuration/` gained an "Installment Options" field in the same form/page as Bank Transfer Details.
+
+### Package model (app/models/package.py)
+- `allow_installments` (Boolean) + `installment_options` (CSV subset of the global list, e.g. `"2,4"`).
+- `installment_options_list` property — this package's offered counts (empty if `allow_installments` is off).
+- `PackageForm` (packages/forms.py) — `allow_installments` checkbox + `installment_options`
+  `SelectMultipleField` (coerce=int) rendered as a checkbox group; choices populated from
+  `AppConfiguration.get().installment_options_list` in `__init__`. Validates at least one count is
+  selected when `allow_installments` is checked. If the global list is empty, create/edit show a
+  message linking to Configuration instead of an empty checkbox group.
+
+### Models (app/models/installment.py)
+- `InstallmentPlan` (installment_plans table) — one per Membership sold on installments:
+  `membership_id` (unique FK), `member_id`, `package_id`, `total_amount`, `installment_count`,
+  `status` (`InstallmentPlanStatus`: ACTIVE/COMPLETED/CANCELLED). `paid_count`, `paid_amount`,
+  `remaining_amount`, `next_due` (earliest non-PAID installment), `progress_label` ("2 of 4 paid").
+  - `InstallmentPlan.split_amount(total, count)` (staticmethod) — splits into 2dp amounts that sum
+    back exactly to the total (Decimal, `ROUND_HALF_UP`); the **last** installment absorbs the
+    rounding remainder so e.g. 100,000 / 3 → 33333.33, 33333.33, 33333.34.
+  - `InstallmentPlan.build_due_dates(start_date, end_date, count)` (staticmethod) — evenly spaces
+    `count` due dates across the membership's day-span (day-based, not calendar-month-based, so it
+    works regardless of whether `duration_months` divides evenly by `count`); installment #1 is
+    always due on `start_date`. E.g. a 12-month package (Jan 1 → Dec 31) split 4 ways lands on
+    ~Jan 1 / Apr 2 / Jul 2 / Oct 1 — "every ~3 months" as specified, computed from the actual day span.
+- `Installment` (installments table) — one row per due slot: `plan_id`, `sequence_no` (1-based),
+  `amount`, `due_date`, `status` (`InstallmentStatus`: PENDING/SUBMITTED/PAID — SUBMITTED mirrors
+  `PaymentStatus.PENDING`, i.e. "awaiting staff verification"), `paid_at`, `last_reminded_at`
+  (dedup marker for the reminder job). `is_overdue`, `active_payment` (most recent non-REJECTED
+  Payment against this slot).
+- `Payment.installment_id` (nullable FK) — set only when a Payment is collecting one specific
+  installment slot; `Payment.installment` relationship (backref `Installment.payments`, dynamic).
+
+### Bank-transfer flow (app/blueprints/payments/routes.py)
+- `buy()` — package cards carry `data-installments="2,4"`; after picking a package+date, a
+  "Payment Plan" radio group appears (Pay in Full / Nx Installments) built client-side from that
+  package's data attribute. Selecting an installment count >1 disables/hides the PayHere button
+  (no recurring support) and appends `&installments=N` to the Bank Transfer button's URL; the
+  summary shows "amount × N" instead of the flat total.
+- `_resolve_installment_count(package, raw)` — validates the `installments` query/form param
+  against `package.installment_options_list`; returns 0 (pay in full) if missing/invalid/not offered.
+- `bank_transfer()` — when `installment_count` is resolved: creates the PENDING Membership (full
+  term, same as today) + an `InstallmentPlan` + all `Installment` rows (via `split_amount`/
+  `build_due_dates`) in the same transaction, marks installment #1 `SUBMITTED`, and the submitted
+  Payment's `amount` is installment #1's amount (not the full package price) with `installment_id`
+  set. `bank_transfer.html` shows the "amount to transfer now" + the full schedule table when an
+  installment plan is being created.
+- `GET/POST /payments/installment/<id>/pay` (new route, `pay_installment()`) — member-facing,
+  reused for installment #2 onward: same reference-number submission pattern as `bank_transfer()`,
+  creates a Payment (PENDING, `installment_id` set, `amount` = that slot's amount) and flips the
+  Installment to SUBMITTED. Guards: owning member only, plan must be ACTIVE, installment must not
+  already be PAID/SUBMITTED, and **installments must be paid in order** (blocks paying #3 while #2
+  is still outstanding) — enforced via `plan.next_due`. Template: `payments/pay_installment.html`.
+
+### Verify/Reject — installment-aware branching (`verify_payment`/`reject_payment`/`cancel_request`)
+The key asymmetry: **installment #1 IS the thing that grants access** (same as a plain bank
+transfer), so verifying/rejecting it activates/cancels the whole Membership+Plan exactly like
+before. **Installment #2+ is just a collection event** on an already-active membership — verifying
+it only marks that slot PAID (and completes the plan if it was the last one); rejecting or
+member-cancelling it only reverts that slot back to PENDING (so the member can resubmit) and never
+touches the Membership or the Plan. Distinguished via `payment.installment.sequence_no > 1`.
+- `verify_payment()` — additionally sets `Installment.status = PAID` + `paid_at`; completes the
+  `InstallmentPlan` (→ COMPLETED) once `paid_count >= installment_count`. Notifies via the new
+  `_notify_member_of_installment_verified()` instead of `_notify_member_of_activation()` when
+  `payment.installment` is set (message differs for "membership now active" vs. "installment X of N
+  received, next due...").
+- `reject_payment()` / `cancel_request()` — both gained the `is_later_installment` branch described
+  above. `_notify_member_of_rejection()` and `_notify_staff_of_request_cancellation()` messages
+  adapt their wording (installment-specific vs. whole-membership) based on the same check.
+- New notify helper `_notify_staff_of_installment_submission()` — ADMINS_MANAGERS notice when a
+  member submits installment #2+ (mirrors `_notify_staff_of_membership_request()` for #1).
+
+### Reminders (app/blueprints/notifications/service.py)
+- `send_installment_reminders()` — notifies members whose next installment is due within
+  `INSTALLMENT_LOOKAHEAD_DAYS` (3) or already overdue; skipped if reminded within the last
+  `INSTALLMENT_REMINDER_COOLDOWN_DAYS` (7, tracked via `Installment.last_reminded_at` — a per-row
+  dedup marker rather than the log-scan approach `send_expiry_reminders()` uses, since amounts/dates
+  differ per member so each gets its own `Notification` rather than one shared broadcast). No SMS
+  (SMS stays payment-confirmation-only). `link_url` is a hardcoded relative path
+  (`/payments/installment/<id>/pay`) rather than `url_for(...)`, since this job runs outside a
+  request context (CLI/scheduler, only `app.app_context()`) where `url_for` would fail.
+- `flask send-installment-reminders` CLI command (run.py) + wired into the existing daily
+  `run_daily_expiry_job` in `app/scheduler.py` (runs right after the expiry-reminder job).
+
+### Templates
+- `memberships/view.html` — new "Installment Plan" card (progress bar, per-slot table with a Pay
+  button on the member's own next-due row) shown whenever `membership.installment_plan` exists.
+- `memberships/my_memberships.html` + `dashboard/member.html` — the active-plan card gets a compact
+  "Installment X of N due <date> [Pay Now]" banner when a next-due PENDING installment exists.
+- `payments/view.html` / `payments/list.html` — installment badge ("Inst. 2/4") next to the
+  reference number; the verify-modal wording adapts for installment #2+.
+- `packages/list.html` / `packages/view.html` — installment-count badges shown when offered.
+
+### DB migration (manual — no Alembic in this project)
+`installment_plans` and `installments` are brand-new tables, so `flask create-tables`
+(`db.create_all()`) picked them up without manual DDL. Existing tables needed manual `ALTER TABLE`:
+```sql
+ALTER TABLE app_configuration ADD COLUMN IF NOT EXISTS installment_options VARCHAR(100);
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS allow_installments BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS installment_options VARCHAR(100);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS installment_id INTEGER REFERENCES installments(id);
+```
+Both `installmentplanstatus` and `installmentstatus` are brand-new Postgres enum types (created by
+`create_all()` alongside their tables), so no `ALTER TYPE ... ADD VALUE` was needed this time.
+
+### Not done (possible follow-ups)
+- No grace-period/auto-suspend if an installment goes unpaid — access was deliberately never gated
+  on staying current (see Design decision above); this is enforced only by convention.
+- No cap on how long installment #2+ can stay overdue before staff manually cancel the plan by hand.
+- Payments list revenue stats (`total_revenue`, `this_month_revenue`) already sum by `amount`
+  regardless of installment — an installment plan's revenue naturally trickles in per verified slot
+  rather than all at once, which matches actual cash received.
+
+---
+
+## QR-Based Attendance Scan (Added 2026-07-29)
+
+### Design decision
+Fully offline — no internet, no cloud, no external CDN calls at runtime. The scanning
+kiosk is meant to be a dedicated reception PC/tablet with the browser open at
+`http://localhost:5000/attendance/scan` (logged in once as staff, left open all day),
+because browsers only grant camera access (`getUserMedia`) on a "secure context" —
+`https://` or `http://localhost` — and a plain LAN address (e.g. `http://192.168.1.20:5000`)
+gets silently blocked regardless of whether the internet is up. Using `localhost` sidesteps
+that entirely with zero certificate setup. The QR encodes the member's **plain numeric ID**
+(a deliberate simplicity-over-forgery-resistance tradeoff — low risk since this only affects
+attendance records, not payments/access).
+
+### No schema changes
+Reuses the existing `Attendance` model (`member_id`, `check_in`, `check_out` nullable) as-is.
+The scan endpoint just toggles: the member's most recent Attendance row today with no
+`check_out` yet → this scan sets `check_out`; otherwise → a new row is created with
+`check_in = now`. First scan of the day naturally becomes check-in, and whichever scan ends
+up last for the day is the checkout (or stays open if they forgot to scan out — same as the
+existing manual-entry behavior).
+
+### Two input paths into the same endpoint (app/blueprints/attendance/routes.py)
+- **Camera scanning** — `templates/attendance/scan.html` captures the video feed to a
+  canvas every animation frame and decodes with **jsQR**, vendored locally at
+  `app/static/vendor/jsQR.min.js` (Apache-2.0, see `jsQR.LICENSE.txt` in the same folder) —
+  fetched once during development and committed, so the kiosk page has zero CDN/internet
+  dependency at runtime. On a decode, POSTs `{code}` to `/attendance/scan`.
+- **Handheld USB/Bluetooth barcode scanner (or manual typing)** — an auto-focused text
+  input on the same page; a "keyboard wedge" scanner types the decoded text + Enter into
+  it with no camera/JS decoding involved at all, sidestepping the secure-context requirement
+  completely. Works with QR or 1D barcodes equally since it's just keystrokes. Recommended
+  as the more robust option for a fixed reception station — a $15–30 device with no browser
+  permission fuss.
+- Both paths call the same client-side `submitCode()` → same `POST /attendance/scan` JSON API.
+
+### Routes (app/blueprints/attendance/routes.py) — `@admin_manager_or_trainer_required`
+- `GET /attendance/scan` (`scan_kiosk`) — renders the kiosk page.
+- `POST /attendance/scan` (`scan_submit`) — JSON `{code}` in, JSON `{ok, action, member,
+  message, time}` out. Validates the code is a plain int, resolves `Member.query.get(id)`,
+  rejects archived members / inactive user accounts. `SCAN_DEBOUNCE_SECONDS = 8` — if the
+  member's last attendance event (check-in or check-out) was less than 8s ago, the scan is
+  treated as a duplicate decode of the same card still in front of the camera and returns the
+  existing state without toggling again (client-side also debounces per decoded code for 4s,
+  to avoid hammering the endpoint every ~16ms while a card sits in view — belt and suspenders).
+- CSRF: the JSON POST carries the token via the `X-CSRFToken` header (Flask-WTF's
+  `CSRFProtect` checks this header by default for AJAX requests — no `@csrf.exempt` needed,
+  unlike the PayHere notify webhook).
+
+### Member QR cards (app/blueprints/members/routes.py)
+- `GET /members/<id>/qr-card` (`qr_card`) — Admin/Manager; generates a QR PNG (via the
+  `qrcode` package, encoding `str(member.id)`) as a base64 data URI, rendered in
+  `templates/members/qr_card.html` — a printable card (`window.print()` button) with
+  `@media print` CSS hiding the sidebar/topbar/buttons so only the card prints.
+  `qrcode`'s default PIL image backend needs Pillow, already present transitively via
+  reportlab — no explicit Pillow pin added to requirements.txt to avoid fighting that
+  existing resolution.
+- Linked from `members/view.html` next to the existing Edit/Archive buttons ("Print QR Card").
+
+### Sidebar (templates/base.html)
+Admin/Manager/Trainer sections each gained a **"Scan Attendance"** nav-item (icon
+`fa-qrcode`) right after the existing "Attendance" link, `active` on the exact
+`attendance.scan_kiosk` endpoint (the existing "Attendance" link's `startswith('attendance.')`
+check was narrowed to exclude it, so the two links don't both highlight at once).
+
+### Hardware/setup notes (from the feasibility study this was built from)
+- **Chosen setup**: dedicated reception PC/tablet, not members' own phones — avoids the
+  self-signed-cert-per-device onboarding friction that BYOD phone scanning over LAN would need.
+- QR over 1D barcode for camera decoding specifically — QR's error correction handles a
+  webcam's angle/lighting/distance variance far better; 1D really wants a dedicated scanner
+  (which the USB-wedge path already provides either symbology for, camera-free).
+- Not done: no signed/opaque per-member token (plain ID chosen for simplicity — see Design
+  decision above); no bulk "print all QR cards" page (per-member only for now); no rate-limit
+  beyond the 8s debounce.
 
 ---
 

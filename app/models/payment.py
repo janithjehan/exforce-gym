@@ -65,6 +65,8 @@ class Payment(db.Model):
     # FR-PAY-01: linked to member (required) and membership (optional)
     member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False)
     membership_id = db.Column(db.Integer, db.ForeignKey('memberships.id'), nullable=True)
+    # Set only when this payment is collecting one specific slot of an InstallmentPlan
+    installment_id = db.Column(db.Integer, db.ForeignKey('installments.id'), nullable=True)
 
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     method = db.Column(db.Enum(PaymentMethod), nullable=False)  # FR-PAY-02
@@ -97,6 +99,10 @@ class Payment(db.Model):
     membership = db.relationship(
         'Membership', foreign_keys=[membership_id],
         backref=db.backref('payments', lazy='dynamic')
+    )
+    installment = db.relationship(
+        'Installment', foreign_keys=[installment_id],
+        backref=db.backref('payments', lazy='dynamic', order_by='Payment.id.desc()')
     )
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     updated_by = db.relationship('User', foreign_keys=[updated_by_id])

@@ -90,6 +90,7 @@
              data-price="{{ pkg.price }}"
              data-name="{{ pkg.name }}"
              data-label="{{ pkg.duration_label }}"
+             data-installments="{{ pkg.installment_options_list | join(',') }}"
              onclick="selectPackage(this)"
              onkeydown="if(event.key==='Enter'||event.key===' ')selectPackage(this)">
             <div class="card-body text-center py-4">
@@ -101,6 +102,11 @@
                 <div class="fw-bold" style="font-size:22px;color:var(--bs-success)">
                     LKR {{ '{:,.0f}'.format(pkg.price) }}
                 </div>
+                {% if pkg.installment_options_list %}
+                <div class="text-muted small mt-1">
+                    <i class="fa-solid fa-layer-group me-1"></i>Installments available
+                </div>
+                {% endif %}
                 {% if pkg.description %}
                 <p class="text-muted small mt-2 mb-0">{{ pkg.description }}</p>
                 {% endif %}
@@ -156,6 +162,11 @@
                         <dt class="col-sm-5">End Date</dt>
                         <dd class="col-sm-7" id="summary-end">—</dd>
                     </dl>
+                    <div id="payment-plan-section" class="mb-3" style="display:none;">
+                        <hr>
+                        <label class="form-label fw-semibold mb-2">Payment Plan</label>
+                        <div class="d-flex flex-wrap gap-3" id="payment-plan-options"></div>
+                    </div>
                     <hr>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <span class="fw-semibold">Total</span>
@@ -164,14 +175,14 @@
                     <a href="#" id="bank-transfer-btn" class="btn btn-primary w-100 btn-lg disabled">
                         <i class="fa-solid fa-building-columns me-2"></i>Pay by Bank Transfer
                     </a>
-                    <p class="text-muted small text-center mt-2 mb-0">
+                    <p class="text-muted small text-center mt-2 mb-0" id="bank-transfer-hint">
                         Submit a reference number — activated once staff verify it.
                     </p>
                     <hr>
                     <a href="#" id="checkout-btn" class="btn btn-outline-secondary w-100 disabled">
                         <i class="fa-solid fa-globe me-2"></i>Pay Online with PayHere
                     </a>
-                    <p class="text-muted small text-center mt-2 mb-0">
+                    <p class="text-muted small text-center mt-2 mb-0" id="checkout-hint">
                         <i class="fa-solid fa-lock me-1"></i>Secured by PayHere
                     </p>
                 </div>
@@ -195,6 +206,7 @@
 <script>
 const MIN_DATE = '{{ min_date }}';
 let selected = null;
+let selectedInstallments = 0; // 0 = pay in full
 
 function selectPackage(el) {
     document.querySelectorAll('.package-card').forEach(c => {
@@ -204,15 +216,50 @@ function selectPackage(el) {
     el.classList.add('border', 'border-primary', 'border-2', 'shadow');
     el.querySelector('.select-indicator').style.display = 'block';
     selected = {
-        id:       el.dataset.packageId,
-        duration: parseInt(el.dataset.duration),
-        price:    parseFloat(el.dataset.price),
-        name:     el.dataset.name,
-        label:    el.dataset.label,
+        id:           el.dataset.packageId,
+        duration:     parseInt(el.dataset.duration),
+        price:        parseFloat(el.dataset.price),
+        name:         el.dataset.name,
+        label:        el.dataset.label,
+        installments: (el.dataset.installments || '').split(',').filter(Boolean).map(Number),
     };
     document.getElementById('plan-details').style.display = 'block';
     document.getElementById('plan-details').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderPaymentPlanOptions();
     updateSummary();
+}
+
+function renderPaymentPlanOptions() {
+    const section = document.getElementById('payment-plan-section');
+    const container = document.getElementById('payment-plan-options');
+    selectedInstallments = 0;
+    container.innerHTML = '';
+
+    if (!selected.installments.length) {
+        section.style.display = 'none';
+        return;
+    }
+    section.style.display = 'block';
+
+    const options = [{ n: 0, label: 'Pay in Full' }].concat(
+        selected.installments.map(n => ({ n, label: `${n} Installments` }))
+    );
+    options.forEach(opt => {
+        const id = `plan-opt-${opt.n}`;
+        const wrap = document.createElement('div');
+        wrap.className = 'form-check';
+        wrap.innerHTML = `
+            <input class="form-check-input" type="radio" name="payment-plan" id="${id}"
+                   value="${opt.n}" ${opt.n === 0 ? 'checked' : ''}>
+            <label class="form-check-label" for="${id}">${opt.label}</label>`;
+        container.appendChild(wrap);
+    });
+    container.querySelectorAll('input[name="payment-plan"]').forEach(input => {
+        input.addEventListener('change', e => {
+            selectedInstallments = parseInt(e.target.value, 10);
+            updateSummary();
+        });
+    });
 }
 
 function addMonths(d, months) {
@@ -243,14 +290,35 @@ function updateSummary() {
     document.getElementById('summary-duration').textContent = selected.label;
     document.getElementById('summary-start').textContent    = fmtDate(start);
     document.getElementById('summary-end').textContent      = fmtDate(endRaw);
-    document.getElementById('summary-amount').textContent   = fmtAmount(selected.price);
 
-    const btn = document.getElementById('checkout-btn');
-    btn.href = `/payments/checkout?package_id=${selected.id}&start_date=${startVal}`;
-    btn.classList.remove('disabled');
-
+    const checkoutBtn = document.getElementById('checkout-btn');
     const btBtn = document.getElementById('bank-transfer-btn');
-    btBtn.href = `/payments/bank-transfer?package_id=${selected.id}&start_date=${startVal}`;
+    const checkoutHint = document.getElementById('checkout-hint');
+    const btHint = document.getElementById('bank-transfer-hint');
+
+    let btUrl = `/payments/bank-transfer?package_id=${selected.id}&start_date=${startVal}`;
+
+    if (selectedInstallments > 1) {
+        const per = selected.price / selectedInstallments;
+        document.getElementById('summary-amount').textContent =
+            `${fmtAmount(per)} × ${selectedInstallments}`;
+        btUrl += `&installments=${selectedInstallments}`;
+        btHint.textContent = `First installment now — submit a reference number, activated once staff verify it.`;
+
+        checkoutBtn.classList.add('disabled');
+        checkoutBtn.removeAttribute('href');
+        checkoutHint.textContent = 'PayHere does not support installment plans — use Bank Transfer instead.';
+    } else {
+        document.getElementById('summary-amount').textContent = fmtAmount(selected.price);
+        btHint.textContent = 'Submit a reference number — activated once staff verify it.';
+
+        checkoutBtn.href = `/payments/checkout?package_id=${selected.id}&start_date=${startVal}`;
+        checkoutBtn.classList.remove('disabled');
+        checkoutHint.textContent = '';
+        checkoutHint.innerHTML = '<i class="fa-solid fa-lock me-1"></i>Secured by PayHere';
+    }
+
+    btBtn.href = btUrl;
     btBtn.classList.remove('disabled');
 }
 </script>

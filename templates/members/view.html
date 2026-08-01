@@ -24,6 +24,9 @@
         <a href="{{ url_for('users.view_user', user_id=member.user_id) }}" class="btn btn-outline-secondary btn-sm">
             <i class="fa-solid fa-users-gear me-1"></i>User Account
         </a>
+        <a href="{{ url_for('members.qr_card', member_id=member.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-qrcode me-1"></i>Print QR Card
+        </a>
         <form method="POST" action="{{ url_for('members.archive_member', member_id=member.id) }}"
               onsubmit="return confirm('Archive {{ member.full_name }}?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

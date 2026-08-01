@@ -11,6 +11,7 @@ from app.blueprints.payroll.forms import (
 from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.payroll import Payroll, PayrollStatus, PayrollMethod, PayrollEditLog
+from app.models.expense import Expense, ExpenseCategory
 from app.utils.decorators import admin_or_manager_required
 
 PAYROLL_PER_PAGE = 15
@@ -330,8 +331,21 @@ def mark_paid(payroll_id):
         record.payment_date = form.payment_date.data
         record.updated_by_id = current_user.id
         record.updated_at = datetime.utcnow()
+
+        db.session.add(Expense(
+            category=ExpenseCategory.SALARY,
+            amount=record.net_amount,
+            expense_date=record.payment_date,
+            description=f'Salary — {record.user.full_name} ({record.period_label})',
+            payroll_id=record.id,
+            created_by_id=current_user.id,
+        ))
+
         db.session.commit()
-        flash(f'Payroll #{record.id} marked as paid.', 'success')
+
+        _notify_staff_of_payroll_paid(record)
+
+        flash(f'Payroll #{record.id} marked as paid and logged as an expense.', 'success')
         return redirect(url_for('payroll.view_payroll', payroll_id=record.id))
 
     return render_template(
@@ -377,6 +391,31 @@ def my_payroll():
 
 
 # ─────────────────────────── helpers ──────────────────────────── #
+
+def _notify_staff_of_payroll_paid(record):
+    """In-app notice to the staff member that their payroll has been paid.
+    Surfaces in their topbar bell / inbox exactly like any other notification."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import dispatch_notification
+
+    notification = Notification(
+        title='Payroll Paid',
+        message=(
+            f'Your salary for {record.period_label} has been paid.\n\n'
+            f'Net Amount: LKR {record.net_amount:,.2f}\n'
+            f'Method: {record.method.label}\n'
+            f'Payment Date: {record.payment_date.strftime("%d %b %Y")}'
+        ),
+        audience=NotificationAudience.SINGLE_STAFF,
+        is_auto=False,
+        created_by_id=current_user.id,
+        link_url=url_for('payroll.view_payroll', payroll_id=record.id),
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, [record.user])
+    db.session.commit()
+
 
 def _detect_changes(record, form, period):
     """Return list of (field_name, old_str, new_str) for changed fields."""

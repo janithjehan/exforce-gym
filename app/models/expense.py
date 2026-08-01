@@ -9,6 +9,7 @@ class ExpenseCategory(enum.Enum):
     EQUIPMENT = 'equipment'
     SUPPLIES = 'supplies'
     MAINTENANCE = 'maintenance'
+    SALARY = 'salary'
     OTHER = 'other'
 
     @property
@@ -19,6 +20,7 @@ class ExpenseCategory(enum.Enum):
             'equipment': 'Equipment',
             'supplies': 'Supplies',
             'maintenance': 'Maintenance',
+            'salary': 'Salary',
             'other': 'Other',
         }[self.value]
 
@@ -30,6 +32,7 @@ class ExpenseCategory(enum.Enum):
             'equipment': 'warning',
             'supplies': 'secondary',
             'maintenance': 'danger',
+            'salary': 'success',
             'other': 'dark',
         }[self.value]
 
@@ -43,6 +46,11 @@ class Expense(db.Model):
     expense_date = db.Column(db.Date, nullable=False)
     description = db.Column(db.Text, nullable=True)
 
+    # Set only when this expense was auto-generated from marking a Payroll
+    # record paid — locks the record from independent edit/archive so it
+    # can't drift out of sync with the payroll record it represents.
+    payroll_id = db.Column(db.Integer, db.ForeignKey('payroll.id'), nullable=True, unique=True)
+
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
     # Audit
@@ -53,8 +61,13 @@ class Expense(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+    payroll = db.relationship('Payroll', backref=db.backref('expense', uselist=False))
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     updated_by = db.relationship('User', foreign_keys=[updated_by_id])
+
+    @property
+    def is_payroll_generated(self):
+        return self.payroll_id is not None
 
     @property
     def status_label(self):

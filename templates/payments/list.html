@@ -133,7 +133,14 @@
                                class="text-decoration-none small">#{{ p.membership.id }}</a>
                             {% else %}—{% endif %}
                         </td>
-                        <td class="text-muted small">{{ p.reference_no or '—' }}</td>
+                        <td class="text-muted small">
+                            {{ p.reference_no or '—' }}
+                            {% if p.installment %}
+                            <span class="badge bg-info text-dark ms-1">
+                                Inst. {{ p.installment.sequence_no }}/{{ p.installment.plan.installment_count }}
+                            </span>
+                            {% endif %}
+                        </td>
                         <td>
                             <span class="badge bg-{{ p.status.badge_class }}">{{ p.status.label }}</span>
                         </td>
