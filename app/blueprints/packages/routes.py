@@ -65,6 +65,11 @@ def create_package():
             price=form.price.data,
             description=form.description.data.strip() or None,
             is_active=True,
+            allow_installments=form.allow_installments.data,
+            installment_options=(
+                ','.join(str(n) for n in sorted(form.installment_options.data))
+                if form.allow_installments.data else None
+            ),
             created_by_id=current_user.id,
         )
         db.session.add(package)
@@ -100,12 +105,19 @@ def edit_package(package_id):
         form.duration_months.data = package.duration_months
         form.price.data = package.price
         form.description.data = package.description
+        form.allow_installments.data = package.allow_installments
+        form.installment_options.data = package.installment_options_list
 
     if form.validate_on_submit():
         package.name = form.name.data.strip()
         package.duration_months = form.duration_months.data
         package.price = form.price.data
         package.description = form.description.data.strip() or None
+        package.allow_installments = form.allow_installments.data
+        package.installment_options = (
+            ','.join(str(n) for n in sorted(form.installment_options.data))
+            if form.allow_installments.data else None
+        )
         package.updated_by_id = current_user.id
         package.updated_at = datetime.utcnow()
         db.session.commit()

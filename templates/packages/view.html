@@ -80,6 +80,17 @@
                         <span class="text-muted">—</span>
                         {% endif %}
                     </dd>
+
+                    <dt class="col-sm-4">Installments</dt>
+                    <dd class="col-sm-8">
+                        {% if package.allow_installments and package.installment_options_list %}
+                        {% for n in package.installment_options_list %}
+                        <span class="badge bg-info text-dark me-1">{{ n }}x</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-muted">Not offered — full payment only</span>
+                        {% endif %}
+                    </dd>
                 </dl>
             </div>
         </div>

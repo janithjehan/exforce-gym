@@ -5,6 +5,7 @@ from flask_login import current_user, login_required
 from app.blueprints.memberships import memberships_bp
 from app.blueprints.memberships.forms import MembershipCreateForm
 from app.extensions import db
+from app.models.installment import InstallmentPlanStatus
 from app.models.member import Member
 from app.models.membership import Membership, MembershipStatus
 from app.models.package import Package
@@ -290,6 +291,14 @@ def cancel_membership(membership_id):
     membership.status = MembershipStatus.CANCELLED
     membership.updated_by_id = current_user.id
     membership.updated_at = datetime.utcnow()
+
+    # Cancelling the membership also stops collection of any remaining
+    # installments — otherwise the plan would keep prompting/reminding the
+    # member to pay installments toward a membership that no longer exists.
+    if membership.installment_plan and membership.installment_plan.status.value == 'active':
+        membership.installment_plan.status = InstallmentPlanStatus.CANCELLED
+        membership.installment_plan.updated_at = datetime.utcnow()
+
     db.session.commit()
 
     flash(f'Membership #{membership.id} has been cancelled.', 'secondary')

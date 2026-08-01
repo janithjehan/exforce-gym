@@ -72,10 +72,14 @@ def profit_report():
         .all()
     )
 
+    # payroll_id.is_(None) excludes expenses auto-generated from Payroll mark-paid —
+    # those are already counted in payroll_expense_total above, so including them
+    # here would double-count staff salaries in expense_total.
     other_expense_total = db.session.query(
         db.func.sum(Expense.amount)
     ).filter(
         Expense.is_archived == False,
+        Expense.payroll_id.is_(None),
         Expense.expense_date >= start_date,
         Expense.expense_date <= end_date,
     ).scalar() or 0
@@ -84,6 +88,7 @@ def profit_report():
         db.session.query(Expense.category, db.func.sum(Expense.amount))
         .filter(
             Expense.is_archived == False,
+            Expense.payroll_id.is_(None),
             Expense.expense_date >= start_date,
             Expense.expense_date <= end_date,
         )

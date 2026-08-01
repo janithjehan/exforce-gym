@@ -9,6 +9,7 @@ from app.blueprints.payments.payhere import generate_hash, verify_notification
 from app.blueprints.payments.sms import send_payment_confirmation
 from app.extensions import db, csrf
 from app.models.configuration import AppConfiguration
+from app.models.installment import InstallmentPlan, Installment, InstallmentPlanStatus, InstallmentStatus
 from app.models.member import Member
 from app.models.membership import Membership, MembershipStatus
 from app.models.package import Package
@@ -496,6 +497,20 @@ def _validate_package_and_date(package_id, start_date_str):
     return package, start_date
 
 
+def _resolve_installment_count(package, raw):
+    """Return a validated installment count (>=2) for this package, or 0
+    (pay in full) if the raw value is missing/invalid/not offered."""
+    if not raw:
+        return 0
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    if package.allow_installments and n in package.installment_options_list:
+        return n
+    return 0
+
+
 @payments_bp.route('/bank-transfer', methods=['GET', 'POST'])
 @login_required
 def bank_transfer():
@@ -529,13 +544,24 @@ def bank_transfer():
 
     package_id = request.args.get('package_id', type=int) or request.form.get('package_id', type=int)
     start_date_str = (request.args.get('start_date') or request.form.get('start_date') or '').strip()
+    installments_raw = request.args.get('installments') or request.form.get('installments')
 
     package, start_date = _validate_package_and_date(package_id, start_date_str)
     if not package:
         return redirect(url_for('payments.buy'))
 
+    installment_count = _resolve_installment_count(package, installments_raw)
     end_date = Membership.calculate_end_date(start_date, package.duration_months)
     settings = AppConfiguration.get()
+
+    if installment_count:
+        installment_amounts = InstallmentPlan.split_amount(package.price, installment_count)
+        installment_due_dates = InstallmentPlan.build_due_dates(start_date, end_date, installment_count)
+        first_amount = installment_amounts[0]
+    else:
+        installment_amounts = None
+        installment_due_dates = None
+        first_amount = package.price
 
     form = BankTransferSubmitForm()
 
@@ -546,16 +572,47 @@ def bank_transfer():
             start_date=start_date,
             end_date=end_date,
             status=MembershipStatus.PENDING,
-            notes='Awaiting bank transfer verification.',
+            notes=(
+                f'Awaiting bank transfer verification (Installment 1 of {installment_count}).'
+                if installment_count else 'Awaiting bank transfer verification.'
+            ),
             created_by_id=current_user.id,
         )
         db.session.add(membership)
         db.session.flush()
 
+        first_installment = None
+        if installment_count:
+            plan = InstallmentPlan(
+                membership_id=membership.id,
+                member_id=member.id,
+                package_id=package.id,
+                total_amount=package.price,
+                installment_count=installment_count,
+                status=InstallmentPlanStatus.ACTIVE,
+                created_by_id=current_user.id,
+            )
+            db.session.add(plan)
+            db.session.flush()
+
+            for seq, (amt, due) in enumerate(zip(installment_amounts, installment_due_dates), start=1):
+                installment = Installment(
+                    plan_id=plan.id,
+                    sequence_no=seq,
+                    amount=amt,
+                    due_date=due,
+                    status=InstallmentStatus.SUBMITTED if seq == 1 else InstallmentStatus.PENDING,
+                )
+                db.session.add(installment)
+                if seq == 1:
+                    first_installment = installment
+            db.session.flush()
+
         payment = Payment(
             member_id=member.id,
             membership_id=membership.id,
-            amount=package.price,
+            installment_id=first_installment.id if first_installment else None,
+            amount=first_amount,
             method=PaymentMethod.BANK_TRANSFER,
             payment_date=date.today(),
             reference_no=form.reference_no.data.strip(),
@@ -582,7 +639,85 @@ def bank_transfer():
         start_date=start_date,
         end_date=end_date,
         bank_details=settings.bank_transfer_details,
+        installment_count=installment_count,
+        installment_amounts=installment_amounts,
+        installment_due_dates=installment_due_dates,
+        first_amount=first_amount,
         title='Pay by Bank Transfer',
+    )
+
+
+@payments_bp.route('/installment/<int:installment_id>/pay', methods=['GET', 'POST'])
+@login_required
+def pay_installment(installment_id):
+    """Member-facing: submit a bank transfer reference for a specific due
+    installment slot (#2 onward) of an existing InstallmentPlan. Installment
+    #1 is handled by bank_transfer() as part of creating the membership —
+    this route only ever deals with later slots."""
+    installment = Installment.query.get_or_404(installment_id)
+    plan = installment.plan
+
+    if current_user.role != UserRole.MEMBER:
+        abort(403)
+    if not current_user.member_profile or current_user.member_profile.id != plan.member_id:
+        abort(403)
+
+    if plan.status != InstallmentPlanStatus.ACTIVE:
+        flash('This installment plan is no longer active.', 'warning')
+        return redirect(url_for('memberships.view_membership', membership_id=plan.membership_id))
+
+    if installment.status == InstallmentStatus.PAID:
+        flash('This installment has already been paid.', 'info')
+        return redirect(url_for('memberships.view_membership', membership_id=plan.membership_id))
+
+    if installment.status == InstallmentStatus.SUBMITTED:
+        flash(
+            'You already submitted a reference for this installment — it is awaiting staff verification.',
+            'warning',
+        )
+        return redirect(url_for('memberships.view_membership', membership_id=plan.membership_id))
+
+    next_due = plan.next_due
+    if next_due and next_due.id != installment.id:
+        flash('Please pay installments in order.', 'warning')
+        return redirect(url_for('memberships.view_membership', membership_id=plan.membership_id))
+
+    settings = AppConfiguration.get()
+    form = BankTransferSubmitForm()
+
+    if form.validate_on_submit():
+        payment = Payment(
+            member_id=plan.member_id,
+            membership_id=plan.membership_id,
+            installment_id=installment.id,
+            amount=installment.amount,
+            method=PaymentMethod.BANK_TRANSFER,
+            payment_date=date.today(),
+            reference_no=form.reference_no.data.strip(),
+            notes=form.notes.data.strip() or None,
+            status=PaymentStatus.PENDING,
+            created_by_id=current_user.id,
+        )
+        db.session.add(payment)
+        installment.status = InstallmentStatus.SUBMITTED
+        db.session.commit()
+
+        _notify_staff_of_installment_submission(installment, payment)
+
+        flash(
+            f'Installment {installment.sequence_no} of {plan.installment_count} submitted '
+            'and is awaiting verification by staff.',
+            'success',
+        )
+        return redirect(url_for('memberships.view_membership', membership_id=plan.membership_id))
+
+    return render_template(
+        'payments/pay_installment.html',
+        form=form,
+        installment=installment,
+        plan=plan,
+        bank_details=settings.bank_transfer_details,
+        title='Pay Installment',
     )
 
 
@@ -603,18 +738,43 @@ def verify_payment(payment_id):
     payment.updated_by_id = current_user.id
     payment.updated_at = datetime.utcnow()
 
+    activates_membership = False
     if payment.membership and payment.membership.status == MembershipStatus.PENDING:
         payment.membership.status = MembershipStatus.ACTIVE
         payment.membership.notes = f'Activated via verified bank transfer. Ref: {payment.reference_no}'
         payment.membership.updated_by_id = current_user.id
         payment.membership.updated_at = datetime.utcnow()
+        activates_membership = True
+
+    if payment.installment:
+        installment = payment.installment
+        installment.status = InstallmentStatus.PAID
+        installment.paid_at = datetime.utcnow()
+        plan = installment.plan
+        if plan.paid_count >= plan.installment_count:
+            plan.status = InstallmentPlanStatus.COMPLETED
+            plan.updated_at = datetime.utcnow()
 
     db.session.commit()
 
-    _notify_member_of_activation(payment)
+    if payment.installment:
+        _notify_member_of_installment_verified(payment)
+    else:
+        _notify_member_of_activation(payment)
 
     sms_ok, sms_error = send_payment_confirmation(payment)
-    flash(f'Payment #{payment.id} verified. Membership activated. The member has been notified.', 'success')
+
+    if payment.installment:
+        plan = payment.installment.plan
+        flash(
+            f'Payment #{payment.id} verified — installment {payment.installment.sequence_no} of '
+            f'{plan.installment_count}'
+            + (' (membership activated).' if activates_membership else '.')
+            + ' The member has been notified.',
+            'success',
+        )
+    else:
+        flash(f'Payment #{payment.id} verified. Membership activated. The member has been notified.', 'success')
     if not sms_ok and sms_error != 'SMS gateway not configured':
         flash(f'Confirmation SMS could not be sent: {sms_error}', 'warning')
 
@@ -644,11 +804,23 @@ def reject_payment(payment_id):
     payment.updated_by_id = current_user.id
     payment.updated_at = datetime.utcnow()
 
-    if payment.membership and payment.membership.status == MembershipStatus.PENDING:
+    # A later installment (#2+) is just a collection attempt on an already-active
+    # membership — rejecting it only reopens that slot, it never touches the
+    # membership. Installment #1 (or a plain non-installment bank transfer) IS
+    # the thing that grants access, so rejecting it cancels the membership/plan.
+    is_later_installment = payment.installment is not None and payment.installment.sequence_no > 1
+
+    if is_later_installment:
+        payment.installment.status = InstallmentStatus.PENDING
+    elif payment.membership and payment.membership.status == MembershipStatus.PENDING:
         payment.membership.status = MembershipStatus.CANCELLED
         payment.membership.notes = f'Cancelled — bank transfer rejected. Ref: {payment.reference_no}'
         payment.membership.updated_by_id = current_user.id
         payment.membership.updated_at = datetime.utcnow()
+        if payment.installment:
+            plan = payment.installment.plan
+            plan.status = InstallmentPlanStatus.CANCELLED
+            plan.updated_at = datetime.utcnow()
 
     db.session.commit()
     _notify_member_of_rejection(payment, reason)
@@ -685,14 +857,26 @@ def cancel_request(payment_id):
     payment.updated_by_id = current_user.id
     payment.updated_at = datetime.utcnow()
 
-    if payment.membership and payment.membership.status == MembershipStatus.PENDING:
+    is_later_installment = payment.installment is not None and payment.installment.sequence_no > 1
+
+    if is_later_installment:
+        payment.installment.status = InstallmentStatus.PENDING
+    elif payment.membership and payment.membership.status == MembershipStatus.PENDING:
         payment.membership.status = MembershipStatus.CANCELLED
         payment.membership.notes = 'Cancelled by the member before verification.'
         payment.membership.updated_by_id = current_user.id
         payment.membership.updated_at = datetime.utcnow()
+        if payment.installment:
+            plan = payment.installment.plan
+            plan.status = InstallmentPlanStatus.CANCELLED
+            plan.updated_at = datetime.utcnow()
 
     db.session.commit()
     _notify_staff_of_request_cancellation(payment)
+
+    if is_later_installment:
+        flash('Your installment submission has been withdrawn. You can resubmit anytime.', 'secondary')
+        return redirect(url_for('memberships.view_membership', membership_id=payment.membership_id))
 
     flash('Your membership request has been cancelled. You can submit a new one anytime.', 'secondary')
     return redirect(url_for('payments.buy'))
@@ -710,13 +894,24 @@ def _notify_staff_of_request_cancellation(payment):
         return
 
     package_name = payment.membership.package.name if payment.membership else 'a package'
-    notification = Notification(
-        title='Membership Request Cancelled',
-        message=(
+
+    if payment.installment and payment.installment.sequence_no > 1:
+        plan = payment.installment.plan
+        message = (
+            f'{payment.member.full_name} withdrew their bank transfer submission for installment '
+            f'{payment.installment.sequence_no} of {plan.installment_count} ("{package_name}") '
+            f'(Ref: {payment.reference_no}) before it was verified. No action is needed.'
+        )
+    else:
+        message = (
             f'{payment.member.full_name} cancelled their membership request for '
             f'"{package_name}" (Ref: {payment.reference_no}) before it was verified. '
             'No action is needed.'
-        ),
+        )
+
+    notification = Notification(
+        title='Membership Request Cancelled',
+        message=message,
         audience=NotificationAudience.ADMINS_MANAGERS,
         is_auto=False,
         created_by_id=payment.member.user_id,
@@ -739,12 +934,16 @@ def _notify_staff_of_membership_request(membership, payment):
         return
 
     member_name = payment.member.full_name
+    installment_note = ''
+    if payment.installment and payment.installment.plan:
+        plan = payment.installment.plan
+        installment_note = f' (Installment 1 of {plan.installment_count} — total plan value LKR {plan.total_amount:,.2f})'
     notification = Notification(
         title='New Membership Request',
         message=(
             f'{member_name} has requested the "{membership.package.name}" package via bank transfer '
             f'and is awaiting verification.\n\n'
-            f'Amount: LKR {payment.amount:,.2f}\n'
+            f'Amount: LKR {payment.amount:,.2f}{installment_note}\n'
             f'Reference: {payment.reference_no}\n'
             f'Requested period: {membership.start_date.strftime("%d %b %Y")} → '
             f'{membership.end_date.strftime("%d %b %Y")}\n\n'
@@ -753,6 +952,39 @@ def _notify_staff_of_membership_request(membership, payment):
         audience=NotificationAudience.ADMINS_MANAGERS,
         is_auto=False,
         link_url=url_for('memberships.view_membership', membership_id=membership.id),
+        created_by_id=payment.created_by_id,
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, recipients)
+    db.session.commit()
+
+
+def _notify_staff_of_installment_submission(installment, payment):
+    """In-app notice to every Admin + Manager that a member has submitted a
+    reference number for a later (#2+) installment slot — the membership is
+    already active, this is purely a collection event to verify."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import resolve_audience, dispatch_notification
+
+    recipients = resolve_audience(NotificationAudience.ADMINS_MANAGERS)
+    if not recipients:
+        return
+
+    plan = installment.plan
+    notification = Notification(
+        title='Installment Payment Submitted',
+        message=(
+            f'{payment.member.full_name} submitted a bank transfer for installment '
+            f'{installment.sequence_no} of {plan.installment_count} '
+            f'("{plan.package.name}").\n\n'
+            f'Amount: LKR {payment.amount:,.2f}\n'
+            f'Reference: {payment.reference_no}\n\n'
+            'Review it to verify or reject the transfer.'
+        ),
+        audience=NotificationAudience.ADMINS_MANAGERS,
+        is_auto=False,
+        link_url=url_for('memberships.view_membership', membership_id=plan.membership_id),
         created_by_id=payment.created_by_id,
     )
     db.session.add(notification)
@@ -805,15 +1037,76 @@ def _notify_member_of_rejection(payment, reason):
     from app.blueprints.notifications.service import dispatch_notification
 
     package_name = payment.membership.package.name if payment.membership else 'your membership'
+    is_later_installment = payment.installment is not None and payment.installment.sequence_no > 1
+
+    installment_note = ''
+    if payment.installment:
+        plan = payment.installment.plan
+        installment_note = f' (Installment {payment.installment.sequence_no} of {plan.installment_count})'
+
+    follow_up = (
+        'Please submit a new reference for this installment, or contact the gym reception if you have questions.'
+        if is_later_installment else
+        'Please contact the gym reception if you have questions, or submit a new payment.'
+    )
+
     notification = Notification(
         title='Bank Transfer Rejected',
         message=(
-            f'Your bank transfer (Ref: {payment.reference_no}) for {package_name} could not be '
-            f'verified and has been rejected.\n\nReason: {reason}\n\n'
-            'Please contact the gym reception if you have questions, or submit a new payment.'
+            f'Your bank transfer (Ref: {payment.reference_no}) for {package_name}{installment_note} could not be '
+            f'verified and has been rejected.\n\nReason: {reason}\n\n{follow_up}'
         ),
         audience=NotificationAudience.SINGLE_MEMBER,
         is_auto=False,
+        created_by_id=payment.verified_by_id,
+    )
+    db.session.add(notification)
+    db.session.flush()
+    dispatch_notification(notification, [payment.member.user])
+    db.session.commit()
+
+
+def _notify_member_of_installment_verified(payment):
+    """In-app notice to the member that a specific installment payment has
+    been verified. For installment #1 this is also when the membership
+    activates for its full term; for #2+ the membership was already active."""
+    from app.models.notification import Notification, NotificationAudience
+    from app.blueprints.notifications.service import dispatch_notification
+
+    installment = payment.installment
+    plan = installment.plan
+    membership = payment.membership
+
+    if installment.sequence_no == 1:
+        message = (
+            f'Good news! Your bank transfer (Ref: {payment.reference_no}) for installment 1 of '
+            f'{plan.installment_count} has been verified and your "{plan.package.name}" membership '
+            'is now active for the full term.'
+        )
+    else:
+        message = (
+            f'Your bank transfer (Ref: {payment.reference_no}) for installment {installment.sequence_no} '
+            f'of {plan.installment_count} ("{plan.package.name}") has been verified. Thank you!'
+        )
+
+    next_due = plan.next_due
+    if next_due:
+        message += (
+            f'\n\nNext due: installment {next_due.sequence_no} of {plan.installment_count} — '
+            f'LKR {next_due.amount:,.2f} on {next_due.due_date.strftime("%d %b %Y")}.'
+        )
+    else:
+        message += '\n\nThis was the final installment — the plan is now fully paid.'
+
+    notification = Notification(
+        title='Installment Payment Verified',
+        message=message,
+        audience=NotificationAudience.SINGLE_MEMBER,
+        is_auto=False,
+        link_url=(
+            url_for('memberships.view_membership', membership_id=membership.id)
+            if membership else None
+        ),
         created_by_id=payment.verified_by_id,
     )
     db.session.add(notification)

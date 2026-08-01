@@ -1,5 +1,5 @@
 from datetime import datetime, date, timedelta
-from flask import render_template, redirect, url_for, flash, request, abort
+from flask import render_template, redirect, url_for, flash, request, abort, jsonify
 from flask_login import current_user, login_required
 
 from app.blueprints.attendance import attendance_bp
@@ -10,9 +10,10 @@ from app.models.member import Member
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
-from app.utils.timezones import to_utc
+from app.utils.timezones import to_utc, to_local
 
 ATTENDANCE_PER_PAGE = 20
+SCAN_DEBOUNCE_SECONDS = 8  # ignore a repeat scan of the same member's card within this window
 
 
 @attendance_bp.route('/')
@@ -145,6 +146,77 @@ def checkout(attendance_id):
 
     flash(f'Check-out recorded for {record.member.full_name}.', 'success')
     return redirect(url_for('attendance.view_attendance', attendance_id=record.id))
+
+
+@attendance_bp.route('/scan')
+@admin_manager_or_trainer_required
+def scan_kiosk():
+    """Kiosk page — a laptop/tablet browser left open at reception, decoding
+    printed member QR cards via the device camera. Runs entirely offline:
+    jsQR is vendored under app/static/vendor (no CDN), and the page is meant
+    to be opened at http://localhost so camera access works with no HTTPS
+    setup (browsers only grant camera access on a secure context — localhost
+    is exempt, a plain LAN address is not)."""
+    return render_template('attendance/scan.html', title='Attendance Scan')
+
+
+@attendance_bp.route('/scan', methods=['POST'])
+@admin_manager_or_trainer_required
+def scan_submit():
+    """JSON API called by the kiosk page for every decoded QR code. Toggles
+    check-in/check-out on the existing Attendance model — no schema change:
+    the member's most recent Attendance row today with no check_out yet means
+    this scan is a check-out; otherwise it's a new check-in. Whichever scan
+    ends up being the member's last one for the day is therefore the checkout,
+    with no special "end of day" logic needed."""
+    payload = request.get_json(silent=True) or {}
+    raw_code = str(payload.get('code', '')).strip()
+
+    if not raw_code.isdigit():
+        return jsonify(ok=False, message='Unrecognized code.'), 400
+
+    member = Member.query.get(int(raw_code))
+    if not member or member.is_archived:
+        return jsonify(ok=False, message='Card not recognized — member not found.'), 404
+    if not member.user.is_active:
+        return jsonify(ok=False, message=f'{member.full_name}: account is inactive.'), 403
+
+    now = datetime.utcnow()
+    latest = member.attendances.first()
+
+    # Debounce — ignore a repeat decode of the same card held in front of the
+    # camera for a couple of seconds, which would otherwise flap check-in/out.
+    last_event_at = (latest.check_out or latest.check_in) if latest else None
+    if last_event_at and (now - last_event_at).total_seconds() < SCAN_DEBOUNCE_SECONDS:
+        action = 'check_out' if latest.check_out else 'check_in'
+        return jsonify(
+            ok=True, duplicate=True, action=action, member=member.full_name,
+            message=f'{member.full_name} — already recorded, please wait a moment.',
+        )
+
+    if latest and latest.check_in.date() == now.date() and latest.check_out is None:
+        latest.check_out = now
+        latest.updated_by_id = current_user.id
+        latest.updated_at = now
+        db.session.commit()
+        return jsonify(
+            ok=True, action='check_out', member=member.full_name,
+            time=to_local(now).strftime('%H:%M'),
+            message=f'{member.full_name} — checked out.',
+        )
+
+    record = Attendance(
+        member_id=member.id,
+        check_in=now,
+        created_by_id=current_user.id,
+    )
+    db.session.add(record)
+    db.session.commit()
+    return jsonify(
+        ok=True, action='check_in', member=member.full_name,
+        time=to_local(now).strftime('%H:%M'),
+        message=f'{member.full_name} — checked in.',
+    )
 
 
 @attendance_bp.route('/my-attendance')

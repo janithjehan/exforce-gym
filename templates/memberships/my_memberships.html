@@ -39,6 +39,32 @@
                 </div>
             </div>
         </div>
+
+        {% if current.installment_plan %}
+        {% set plan = current.installment_plan %}
+        <hr>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted small">Installment Plan — {{ plan.progress_label }}</span>
+            <span class="badge bg-{{ plan.status.badge_class }}">{{ plan.status.label }}</span>
+        </div>
+        {% if plan.next_due and plan.next_due.status.value == 'pending' %}
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="small">
+                Next: Installment {{ plan.next_due.sequence_no }} of {{ plan.installment_count }} —
+                LKR {{ '{:,.2f}'.format(plan.next_due.amount) }} due {{ plan.next_due.due_date.strftime('%d %b %Y') }}
+                {% if plan.next_due.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+            </span>
+            <a href="{{ url_for('payments.pay_installment', installment_id=plan.next_due.id) }}"
+               class="btn btn-primary btn-sm text-nowrap">Pay Now</a>
+        </div>
+        {% elif plan.next_due %}
+        <div class="small text-muted">
+            Installment {{ plan.next_due.sequence_no }} submitted — awaiting staff verification.
+        </div>
+        {% else %}
+        <div class="small text-success"><i class="fa-solid fa-check-circle me-1"></i>Fully paid.</div>
+        {% endif %}
+        {% endif %}
     </div>
 </div>
 {% elif pending %}

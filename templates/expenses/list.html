@@ -4,7 +4,7 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Expenses</h2>
-        <p>Business expenses outside of staff payroll (rent, utilities, equipment, supplies...).</p>
+        <p>Business expenses, including rent, utilities, equipment, supplies, and staff salaries paid via Payroll.</p>
     </div>
     <a href="{{ url_for('expenses.create_expense') }}" class="btn btn-primary">
         <i class="fa-solid fa-plus me-2"></i>Log Expense
@@ -87,6 +87,9 @@
                             <a href="{{ url_for('expenses.view_expense', expense_id=exp.id) }}" class="text-decoration-none">
                                 {{ exp.description or '—' }}
                             </a>
+                            {% if exp.is_payroll_generated %}
+                            <i class="fa-solid fa-lock text-muted ms-1" title="Auto-generated from Payroll"></i>
+                            {% endif %}
                         </td>
                         <td>{{ '{:,.2f}'.format(exp.amount) }}</td>
                         <td class="text-muted small">{{ exp.expense_date.strftime('%d %b %Y') }}</td>

@@ -125,6 +125,53 @@
         </div>
     </div>
 
+    <!-- Installment plan, if this membership was sold on installments -->
+    {% if membership.installment_plan %}
+    {% set plan = membership.installment_plan %}
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong><i class="fa-solid fa-layer-group text-orange me-2"></i>Installment Plan</strong>
+                <span class="badge bg-{{ plan.status.badge_class }}">{{ plan.status.label }}</span>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">Progress</span>
+                    <span class="fw-semibold small">{{ plan.progress_label }}</span>
+                </div>
+                <div class="progress mb-3" style="height:8px;">
+                    <div class="progress-bar bg-success" style="width: {{ (plan.paid_count / plan.installment_count * 100) | round(1) }}%"></div>
+                </div>
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>#</th><th>Due</th><th class="text-end">Amount</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for inst in plan.installments %}
+                        <tr class="{% if inst.is_overdue %}table-danger{% endif %}">
+                            <td>{{ inst.sequence_no }}</td>
+                            <td>{{ inst.due_date.strftime('%d %b %Y') }}</td>
+                            <td class="text-end">LKR {{ '{:,.2f}'.format(inst.amount) }}</td>
+                            <td><span class="badge bg-{{ inst.status.badge_class }}">{{ inst.status.label }}</span></td>
+                            <td class="text-end">
+                                {% if inst.active_payment %}
+                                <a href="{{ url_for('payments.view_payment', payment_id=inst.active_payment.id) }}"
+                                   class="small">View</a>
+                                {% elif current_user.role.value == 'member' and plan.status.value == 'active'
+                                      and inst.status.value == 'pending' and plan.next_due and plan.next_due.id == inst.id %}
+                                <a href="{{ url_for('payments.pay_installment', installment_id=inst.id) }}"
+                                   class="btn btn-outline-primary btn-sm">Pay</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Membership history for this member -->
     {% if current_user.role.value == 'admin' %}
     <div class="col-lg-6">

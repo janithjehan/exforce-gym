@@ -78,6 +78,18 @@
                     </dd>
                     {% endif %}
 
+                    {% if payment.installment %}
+                    <dt class="col-sm-4">Installment</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-info text-dark">
+                            {{ payment.installment.sequence_no }} of {{ payment.installment.plan.installment_count }}
+                        </span>
+                        <span class="text-muted small ms-1">
+                            Plan total: LKR {{ '{:,.2f}'.format(payment.installment.plan.total_amount) }}
+                        </span>
+                    </dd>
+                    {% endif %}
+
                     {% if payment.notes %}
                     <dt class="col-sm-4">Notes</dt>
                     <dd class="col-sm-8" style="white-space:pre-line;">{{ payment.notes }}</dd>
@@ -166,7 +178,10 @@
                     Confirm that <strong>LKR {{ '{:,.2f}'.format(payment.amount) }}</strong>
                     (Ref: <span class="font-monospace">{{ payment.reference_no or '—' }}</span>)
                     has been received.
-                    {% if payment.membership %}
+                    {% if payment.installment and payment.installment.sequence_no > 1 %}
+                    This marks installment {{ payment.installment.sequence_no }} of
+                    {{ payment.installment.plan.installment_count }} as paid.
+                    {% elif payment.membership %}
                     This activates the <strong>{{ payment.membership.package.name }}</strong> membership.
                     {% endif %}
                 </p>

@@ -74,6 +74,15 @@
                     <dd class="col-sm-8">
                         <span class="badge bg-{{ record.method.badge_class }}">{{ record.method.label }}</span>
                     </dd>
+
+                    {% if record.expense and current_user.is_admin %}
+                    <dt class="col-sm-4">Expense Record</dt>
+                    <dd class="col-sm-8">
+                        <a href="{{ url_for('expenses.view_expense', expense_id=record.expense.id) }}">
+                            <i class="fa-solid fa-receipt me-1"></i>Expense #{{ record.expense.id }}
+                        </a>
+                    </dd>
+                    {% endif %}
                     {% endif %}
 
                     {% if record.notes %}

@@ -16,6 +16,7 @@ from app.models.feedback import Feedback, FeedbackCategory, FeedbackStatus
 from app.models.payroll import Payroll, PayrollStatus, PayrollMethod, PayrollEditLog
 from app.models.expense import Expense, ExpenseCategory
 from app.models.configuration import AppConfiguration
+from app.models.installment import InstallmentPlan, Installment, InstallmentPlanStatus, InstallmentStatus
 
 __all__ = [
     'User', 'UserRole', 'LoginActivityLog',
@@ -36,4 +37,5 @@ __all__ = [
     'Payroll', 'PayrollStatus', 'PayrollMethod', 'PayrollEditLog',
     'Expense', 'ExpenseCategory',
     'AppConfiguration',
+    'InstallmentPlan', 'Installment', 'InstallmentPlanStatus', 'InstallmentStatus',
 ]

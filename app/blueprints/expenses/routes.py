@@ -116,6 +116,10 @@ def edit_expense(expense_id):
         flash('Archived expenses cannot be edited.', 'warning')
         return redirect(url_for('expenses.view_expense', expense_id=expense_id))
 
+    if expense.is_payroll_generated:
+        flash('This expense was auto-generated from a payroll record and cannot be edited directly.', 'warning')
+        return redirect(url_for('expenses.view_expense', expense_id=expense_id))
+
     form = ExpenseForm()
 
     if request.method == 'GET':
@@ -143,6 +147,11 @@ def edit_expense(expense_id):
 def archive_expense(expense_id):
     """Soft-delete an expense record."""
     expense = Expense.query.get_or_404(expense_id)
+
+    if expense.is_payroll_generated:
+        flash('This expense was auto-generated from a payroll record and cannot be archived directly.', 'warning')
+        return redirect(url_for('expenses.view_expense', expense_id=expense_id))
+
     expense.is_archived = True
     expense.updated_by_id = current_user.id
     expense.updated_at = datetime.utcnow()

@@ -11,12 +11,17 @@ def init_scheduler(app):
     def run_daily_expiry_job():
         with app.app_context():
             from app.models.membership import Membership
-            from app.blueprints.notifications.service import send_expiry_reminders
+            from app.blueprints.notifications.service import send_expiry_reminders, send_installment_reminders
 
             Membership.expire_passed()
             notified, skipped = send_expiry_reminders()
             app.logger.info(
                 f'[scheduler] expiry job: {notified} notified, {skipped} skipped'
+            )
+
+            inst_notified, inst_skipped = send_installment_reminders()
+            app.logger.info(
+                f'[scheduler] installment reminder job: {inst_notified} notified, {inst_skipped} skipped'
             )
 
     scheduler.configure(timezone=app.config['TIMEZONE'])

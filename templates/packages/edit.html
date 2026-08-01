@@ -52,6 +52,34 @@
                         {% for e in form.description.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                     </div>
 
+                    <div class="mb-4 p-3 border rounded">
+                        <div class="form-check form-switch mb-2">
+                            {{ form.allow_installments(class='form-check-input', id='allowInstallments') }}
+                            {{ form.allow_installments.label(class='form-check-label fw-semibold') }}
+                        </div>
+                        {% if form.installment_options.choices %}
+                        <div id="installmentOptionsBlock">
+                            <label class="form-label small text-muted">Installment counts to offer</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                {% for value, label in form.installment_options.choices %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="installment_options"
+                                           id="inst_opt_{{ value }}" value="{{ value }}"
+                                           {% if form.installment_options.data and value in form.installment_options.data %}checked{% endif %}>
+                                    <label class="form-check-label" for="inst_opt_{{ value }}">{{ label }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% for e in form.installment_options.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted small mb-0">
+                            No installment counts are configured yet.
+                            <a href="{{ url_for('configuration.edit_configuration') }}">Add some in Configuration</a> first.
+                        </p>
+                        {% endif %}
+                    </div>
+
                     <div class="d-flex gap-2">
                         {{ form.submit(class='btn btn-primary') }}
                         <a href="{{ url_for('packages.view_package', package_id=package.id) }}" class="btn btn-outline-secondary">Cancel</a>
@@ -61,4 +89,17 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggle = document.getElementById('allowInstallments');
+    const block = document.getElementById('installmentOptionsBlock');
+    if (!toggle || !block) return;
+    function sync() { block.style.display = toggle.checked ? '' : 'none'; }
+    toggle.addEventListener('change', sync);
+    sync();
+});
+</script>
 {% endblock %}

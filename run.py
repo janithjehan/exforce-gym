@@ -65,6 +65,16 @@ def send_expiry_reminders():
         click.echo(f'Expiry reminders: {notified} notified, {skipped} already reminded recently.')
 
 
+@app.cli.command('send-installment-reminders')
+def send_installment_reminders():
+    """Notify members whose next installment is due soon or overdue.
+    Run as a scheduled task."""
+    from app.blueprints.notifications.service import send_installment_reminders as run_job
+    with app.app_context():
+        notified, skipped = run_job()
+        click.echo(f'Installment reminders: {notified} notified, {skipped} already reminded recently.')
+
+
 @app.cli.command('drop-tables')
 @click.confirmation_option(prompt='Are you sure you want to drop all tables?')
 def drop_tables():

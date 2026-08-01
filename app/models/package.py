@@ -15,6 +15,10 @@ class Package(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
+    # Installments: opt-in subset of AppConfiguration.installment_options, e.g. "2,4"
+    allow_installments = db.Column(db.Boolean, nullable=False, default=False)
+    installment_options = db.Column(db.String(100), nullable=True)
+
     # Audit
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     updated_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -40,6 +44,15 @@ class Package(db.Model):
             if months == self.duration_months:
                 return label
         return f'{self.duration_months} Months'
+
+    @property
+    def installment_options_list(self):
+        """This package's offered installment counts (subset of the global
+        Configuration list), sorted ascending. Empty if installments are off."""
+        if not self.allow_installments:
+            return []
+        from app.models.configuration import AppConfiguration
+        return AppConfiguration.parse_installment_options(self.installment_options)
 
     @property
     def status_label(self):
