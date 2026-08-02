@@ -86,8 +86,8 @@
                     {% for e in equipment.items %}
                     <tr>
                         <td>
-                            {% if e.image_path %}
-                            <img src="{{ url_for('static', filename=e.image_path) }}" alt="{{ e.name }}"
+                            {% if e.image_url %}
+                            <img src="{{ e.image_url }}" alt="{{ e.name }}"
                                  class="rounded" style="width:48px;height:48px;object-fit:cover;">
                             {% else %}
                             <div class="rounded bg-light d-flex align-items-center justify-content-center text-muted"

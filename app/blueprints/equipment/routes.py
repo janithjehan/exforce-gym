@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user
 from sqlalchemy import func
 
@@ -10,17 +10,23 @@ from app.extensions import db
 from app.models.equipment import Equipment, EquipmentCategory, EquipmentStatus
 from app.utils.decorators import admin_required, admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
-from app.utils.uploads import save_image, delete_image
+from app.utils.uploads import read_image_bytes
 
 EQUIPMENT_PER_PAGE = 15
 
 
-def _save_image(file_storage):
-    return save_image(file_storage, 'equipment')
-
-
-def _delete_image(filename):
-    delete_image(filename, 'equipment')
+@equipment_bp.route('/<int:equipment_id>/image')
+@admin_manager_or_trainer_required
+def equipment_image(equipment_id):
+    """Streams an equipment item's image straight from the DB."""
+    item = Equipment.query.get_or_404(equipment_id)
+    if not item.image_data:
+        abort(404)
+    return Response(
+        item.image_data,
+        mimetype=item.image_mimetype or 'image/jpeg',
+        headers={'Cache-Control': 'private, max-age=86400'},
+    )
 
 
 @equipment_bp.route('/')
@@ -75,19 +81,16 @@ def list_equipment():
 def create_equipment():
     form = EquipmentForm()
     if form.validate_on_submit():
-        image_filename = None
-        if form.image.data:
-            image_filename = _save_image(form.image.data)
-
         item = Equipment(
             name=form.name.data.strip(),
             category=EquipmentCategory(form.category.data),
             quantity=form.quantity.data,
             status=EquipmentStatus(form.status.data),
-            image_filename=image_filename,
             notes=form.notes.data.strip() or None,
             created_by_id=current_user.id,
         )
+        if form.image.data:
+            item.image_data, item.image_mimetype = read_image_bytes(form.image.data)
         db.session.add(item)
         db.session.commit()
         flash(f'Equipment "{item.name}" added.', 'success')
@@ -129,11 +132,10 @@ def edit_equipment(equipment_id):
         item.notes = form.notes.data.strip() or None
 
         if form.image.data:
-            _delete_image(item.image_filename)
-            item.image_filename = _save_image(form.image.data)
+            item.image_data, item.image_mimetype = read_image_bytes(form.image.data)
         elif form.remove_image.data:
-            _delete_image(item.image_filename)
-            item.image_filename = None
+            item.image_data = None
+            item.image_mimetype = None
 
         item.updated_by_id = current_user.id
         item.updated_at = datetime.utcnow()

@@ -12,7 +12,7 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Record Attendance</h2>
-        <p>Log a member check-in.</p>
+        <p>Log a check-in for any Admin, Manager, Trainer, or Member.</p>
     </div>
 </div>
 
@@ -24,9 +24,9 @@
                     {{ form.hidden_tag() }}
 
                     <div class="mb-3">
-                        {{ form.member_id.label(class='form-label fw-semibold') }}
-                        {{ form.member_id(class='form-select' + (' is-invalid' if form.member_id.errors else '')) }}
-                        {% for e in form.member_id.errors %}
+                        {{ form.user_id.label(class='form-label fw-semibold') }}
+                        {{ form.user_id(class='form-select' + (' is-invalid' if form.user_id.errors else '')) }}
+                        {% for e in form.user_id.errors %}
                         <div class="invalid-feedback">{{ e }}</div>
                         {% endfor %}
                     </div>

@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('memberships.view_membership', membership_id=plan.membership_id) }}">Membership</a></li>
+        <li class="breadcrumb-item active">Pay Installment {{ installment.sequence_no }}</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Pay Installment {{ installment.sequence_no }} of {{ plan.installment_count }}</h2>
+        <p>{{ plan.package.name }} &middot; transfer the amount below, then submit your reference number.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-receipt text-orange me-2"></i>Installment Details
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Package</dt>
+                    <dd class="col-sm-7">{{ plan.package.name }}</dd>
+
+                    <dt class="col-sm-5">Installment</dt>
+                    <dd class="col-sm-7">{{ installment.sequence_no }} of {{ plan.installment_count }}</dd>
+
+                    <dt class="col-sm-5">Due Date</dt>
+                    <dd class="col-sm-7">
+                        {{ installment.due_date.strftime('%d %b %Y') }}
+                        {% if installment.is_overdue %}
+                        <span class="badge bg-danger ms-1">Overdue</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-5">Plan Progress</dt>
+                    <dd class="col-sm-7">{{ plan.progress_label }}</dd>
+                </dl>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Amount to Transfer</span>
+                    <span class="fw-bold fs-5 text-success">LKR {{ '{:,.2f}'.format(installment.amount) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-building-columns text-orange me-2"></i>Bank Details
+            </div>
+            <div class="card-body">
+                {% if bank_details %}
+                <div style="white-space:pre-line;">{{ bank_details }}</div>
+                {% else %}
+                <p class="text-muted mb-0">
+                    Bank details have not been configured yet. Please contact the gym reception.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <strong>Submit Your Transfer Reference</strong>
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.reference_no.label(class='form-label fw-semibold') }}
+                        {{ form.reference_no(class='form-control' + (' is-invalid' if form.reference_no.errors else '')) }}
+                        {% for e in form.reference_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.notes.label(class='form-label fw-semibold') }}
+                        {{ form.notes(class='form-control' + (' is-invalid' if form.notes.errors else '')) }}
+                        {% for e in form.notes.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    {{ form.submit(class='btn btn-primary w-100 btn-lg') }}
+                    <a href="{{ url_for('memberships.view_membership', membership_id=plan.membership_id) }}"
+                       class="btn btn-link text-muted mt-2 d-block">
+                        &larr; Back to Membership
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

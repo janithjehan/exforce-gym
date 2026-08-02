@@ -4,7 +4,7 @@ from flask import Flask, session, redirect, url_for
 from flask_login import current_user, logout_user
 
 from config import config
-from app.extensions import db, login_manager, bcrypt, csrf
+from app.extensions import db, login_manager, bcrypt, csrf, migrate
 
 
 def create_app(config_name=None):
@@ -21,6 +21,7 @@ def create_app(config_name=None):
 
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     bcrypt.init_app(app)
     csrf.init_app(app)
@@ -104,7 +105,7 @@ def create_app(config_name=None):
     @app.template_global()
     def avatar(user, classes='user-avatar'):
         if user is not None and getattr(user, 'avatar_url', None):
-            src = url_for('static', filename=user.avatar_url)
+            src = user.avatar_url
             return Markup(
                 f'<img src="{src}" alt="{escape(user.full_name)}" class="avatar-img {escape(classes)}">'
             )

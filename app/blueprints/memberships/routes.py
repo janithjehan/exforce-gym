@@ -1,14 +1,16 @@
 from datetime import datetime, timedelta, date
-from flask import render_template, redirect, url_for, flash, request, abort
+from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user, login_required
 
 from app.blueprints.memberships import memberships_bp
 from app.blueprints.memberships.forms import MembershipCreateForm
+from app.blueprints.memberships.pdf import build_membership_receipt_pdf
 from app.extensions import db
 from app.models.installment import InstallmentPlanStatus
 from app.models.member import Member
 from app.models.membership import Membership, MembershipStatus
 from app.models.package import Package
+from app.models.payment import Payment, PaymentStatus
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_required, admin_or_manager_required
 from app.utils.search import parse_search_terms, multi_term_filter
@@ -90,7 +92,7 @@ def create_membership():
         Package.duration_months.asc()
     ).all()
     form.package_id.choices = [
-        (p.id, f'{p.name} — {p.duration_label} (LKR {p.price:,.2f})')
+        (p.id, f'{p.name} - {p.duration_label} (LKR {p.price:,.2f})')
         for p in active_packages
     ]
 
@@ -225,8 +227,44 @@ def view_membership(membership_id):
             from flask import abort
             abort(403)
 
+    has_receipt = membership.payments.filter(Payment.status == PaymentStatus.VERIFIED).first() is not None
+
     return render_template(
-        'memberships/view.html', membership=membership, title='Membership Details'
+        'memberships/view.html', membership=membership, has_receipt=has_receipt,
+        title='Membership Details'
+    )
+
+
+@memberships_bp.route('/<int:membership_id>/receipt')
+@login_required
+def download_receipt(membership_id):
+    """PDF receipt of every VERIFIED payment made against this membership —
+    covers a verified bank transfer, a staff-recorded cash/card payment, or a
+    PayHere purchase alike, since all three end up as a VERIFIED Payment row
+    linked to the membership."""
+    membership = Membership.query.get_or_404(membership_id)
+
+    if current_user.role == UserRole.MEMBER:
+        if (not current_user.member_profile
+                or current_user.member_profile.id != membership.member_id):
+            abort(403)
+
+    payments = (
+        membership.payments
+        .filter(Payment.status == PaymentStatus.VERIFIED)
+        .order_by(Payment.payment_date.asc(), Payment.id.asc())
+        .all()
+    )
+    if not payments:
+        flash('No verified payment found for this membership yet.', 'warning')
+        return redirect(url_for('memberships.view_membership', membership_id=membership_id))
+
+    pdf_bytes = build_membership_receipt_pdf(membership, payments)
+    filename = f'receipt-membership-{membership.id}.pdf'
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
 
 

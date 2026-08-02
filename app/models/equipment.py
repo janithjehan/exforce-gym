@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from flask import url_for
 from app.extensions import db
 
 
@@ -51,7 +52,10 @@ class Equipment(db.Model):
     # FR-EQP-01: Name, Category, Image, Quantity, Status, Notes
     name = db.Column(db.String(100), nullable=False)
     category = db.Column(db.Enum(EquipmentCategory), nullable=False)
-    image_filename = db.Column(db.String(255), nullable=True)
+    # Image stored as binary data in the DB (survives redeploys on hosts with
+    # no persistent filesystem, unlike app/static/uploads/)
+    image_data = db.Column(db.LargeBinary, nullable=True)
+    image_mimetype = db.Column(db.String(50), nullable=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     status = db.Column(
         db.Enum(EquipmentStatus), nullable=False,
@@ -73,11 +77,11 @@ class Equipment(db.Model):
     updated_by = db.relationship('User', foreign_keys=[updated_by_id])
 
     @property
-    def image_path(self):
-        """Static-relative path for url_for('static', filename=...)."""
-        if not self.image_filename:
+    def image_url(self):
+        """URL that streams the equipment image from the DB; None if unset."""
+        if not self.image_data:
             return None
-        return f'uploads/equipment/{self.image_filename}'
+        return url_for('equipment.equipment_image', equipment_id=self.id)
 
     @property
     def is_available(self):

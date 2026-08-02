@@ -6,7 +6,6 @@ from app.extensions import db
 class Gender(enum.Enum):
     MALE = 'male'
     FEMALE = 'female'
-    OTHER = 'other'
 
     @property
     def label(self):

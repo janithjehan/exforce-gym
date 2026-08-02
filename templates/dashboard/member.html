@@ -6,6 +6,12 @@
         <h2>Member Dashboard</h2>
         <p>Welcome back, <strong>{{ current_user.first_name }}</strong>.</p>
     </div>
+    <div class="text-end">
+        <span class="badge bg-dark bg-opacity-75 px-3 py-2" style="font-size:13px;">
+            <i class="fa-solid fa-id-card me-1"></i>Your Attendance ID: {{ current_user.id }}
+        </span>
+        <div class="text-muted small mt-1">Give this to reception to check in/out</div>
+    </div>
 </div>
 
 <div class="row g-4">
@@ -44,7 +50,7 @@
                 {% set next_due = membership.installment_plan.next_due %}
                 <div class="alert alert-warning d-flex justify-content-between align-items-center mt-3 mb-0 py-2 px-3">
                     <span class="small">
-                        Installment {{ next_due.sequence_no }} of {{ membership.installment_plan.installment_count }} —
+                        Installment {{ next_due.sequence_no }} of {{ membership.installment_plan.installment_count }} -
                         LKR {{ '{:,.2f}'.format(next_due.amount) }} due {{ next_due.due_date.strftime('%d %b %Y') }}
                         {% if next_due.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
                     </span>
@@ -84,7 +90,7 @@
                 </div>
                 <div class="d-grid mt-2">
                     <a href="{{ url_for('payments.buy') }}" class="btn btn-primary btn-sm">
-                        <i class="fa-solid fa-globe me-2"></i>Get a Plan — Pay Online
+                        <i class="fa-solid fa-globe me-2"></i>Get a Plan - Pay Online
                     </a>
                 </div>
                 {% endif %}
@@ -206,7 +212,7 @@
                 <p class="mb-0">
                     Cancel your request for <strong>{{ pending_membership.package.name }}</strong>?
                     Your bank transfer submission (Ref:
-                    <span class="font-monospace">{{ pending_payment.reference_no or '—' }}</span>)
+                    <span class="font-monospace">{{ pending_payment.reference_no or '-' }}</span>)
                     will be withdrawn. You can submit a new one anytime.
                 </p>
             </div>

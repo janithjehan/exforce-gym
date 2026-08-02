@@ -27,34 +27,44 @@
     </div>
 </div>
 
-<div class="card">
-    <!-- Tabs + Search -->
-    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
-        <!-- Status tabs -->
-        <div class="d-flex gap-1 me-auto">
-            <a href="{{ url_for('trainers.list_trainers', status='active', search=search) }}"
-               class="btn btn-sm {% if status_filter != 'archived' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
-                Active
-            </a>
-            <a href="{{ url_for('trainers.list_trainers', status='archived', search=search) }}"
-               class="btn btn-sm {% if status_filter == 'archived' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
-                Archived
-            </a>
-        </div>
-        <!-- Search -->
-        <form method="GET" class="d-flex gap-2 align-items-center">
-            <input type="hidden" name="status" value="{{ status_filter }}">
-            <input type="text" name="search" value="{{ search }}"
-                   class="form-control form-control-sm" placeholder="Search name / specialization... (comma-separate for multiple)"
-                   style="width:230px;">
-            <button type="submit" class="btn btn-sm btn-outline-secondary">
-                <i class="fa-solid fa-magnifying-glass"></i>
-            </button>
-            {% if search %}
-            <a href="{{ url_for('trainers.list_trainers', status=status_filter) }}"
-               class="btn btn-sm btn-outline-secondary">Clear</a>
-            {% endif %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('trainers.list_trainers') }}" class="row g-2 align-items-end">
+            <div class="col-lg-5 col-md-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Search</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Name or specialization… (comma-separate for multiple)" value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label mb-1" style="font-size:12px; font-weight:600;">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="all"      {% if status_filter == 'all' %}selected{% endif %}>Active (excl. archived)</option>
+                    <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter me-1"></i>Filter
+                </button>
+                <a href="{{ url_for('trainers.list_trainers') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
         </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span>
+            <i class="fa-solid fa-person-running text-orange me-2"></i>
+            Trainers
+            <span class="badge bg-secondary ms-2" style="font-size:11px;">{{ trainers.total }}</span>
+        </span>
     </div>
 
     <div class="card-body p-0">

@@ -12,7 +12,7 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Submit Feedback</h2>
-        <p>Tell us how we're doing — your feedback helps us improve.</p>
+        <p>Tell us how we're doing - your feedback helps us improve.</p>
     </div>
 </div>
 
@@ -70,7 +70,7 @@
 
 {% block scripts %}
 <script>
-    // Star picker — fills the hidden RadioField inputs
+    // Star picker - fills the hidden RadioField inputs
     const stars = document.querySelectorAll('.star-pick');
     const radios = document.querySelectorAll('input[name="rating"]');
     const hint = document.getElementById('ratingHint');
@@ -89,7 +89,7 @@
             const value = parseInt(star.dataset.value);
             radios.forEach(r => { r.checked = (r.value === String(value)); });
             paint(value);
-            hint.textContent = value + ' / 5 — ' + labels[value];
+            hint.textContent = value + ' / 5 - ' + labels[value];
         });
         star.addEventListener('mouseenter', () => paint(parseInt(star.dataset.value)));
         star.addEventListener('mouseleave', () => {

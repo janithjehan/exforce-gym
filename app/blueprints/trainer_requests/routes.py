@@ -285,7 +285,7 @@ def view_request(request_id):
 
     member = req.member
     active_membership = _active_membership(member)
-    recent_attendance = member.attendances.limit(5).all()
+    recent_attendance = member.user.attendances.limit(5).all()
 
     return render_template(
         'trainer_requests/detail.html',

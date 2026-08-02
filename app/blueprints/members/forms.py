@@ -1,14 +1,16 @@
 from datetime import date
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import (
     StringField, SelectField, TextAreaField,
-    DateField, SubmitField
+    DateField, BooleanField, SubmitField
 )
 from wtforms.validators import (
     DataRequired, Email, Length, Optional, Regexp, ValidationError
 )
 from app.models.user import User
 from app.models.member import Gender
+from app.utils.uploads import ALLOWED_IMAGE_EXTENSIONS
 from app.utils.validators import validate_nic_format, nic_taken
 
 
@@ -48,9 +50,7 @@ class MemberCreateForm(FlaskForm):
     date_of_birth = DateField('Date of Birth', validators=[Optional()])
     gender = SelectField(
         'Gender',
-        choices=[('', '— Auto from NIC —')] + [
-            (g.value, g.label) for g in Gender if g != Gender.OTHER
-        ],
+        choices=[('', '— Auto from NIC —')] + [(g.value, g.label) for g in Gender],
         validators=[Optional()],
     )
     emergency_contact_name = StringField(
@@ -61,6 +61,10 @@ class MemberCreateForm(FlaskForm):
     )
     notes = TextAreaField('Admin Notes', validators=[Optional(), Length(max=1000)],
                           render_kw={'rows': 2})
+    photo = FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
+    )
 
     submit = SubmitField('Create Member')
 
@@ -166,6 +170,11 @@ class MemberSelfEditForm(FlaskForm):
     emergency_contact_no = StringField(
         'Emergency Contact No', validators=[Optional(), Length(max=20)]
     )
+    photo = FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
+    )
+    remove_photo = BooleanField('Remove current photo')
     submit = SubmitField('Save Changes')
 
     def __init__(self, user_id=None, *args, **kwargs):

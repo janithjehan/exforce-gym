@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('attendance.list_attendance') }}">Attendance</a></li>
+        <li class="breadcrumb-item active">Scan</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div class="page-header-title">
+        <h2>Attendance Scan</h2>
+        <p>Leave this page open at reception. Enter the person's ID (shown on their own dashboard) and press Enter - first entry of the day checks in, the next checks out. Works for any role - Admin, Manager, Trainer, or Member.</p>
+    </div>
+</div>
+
+<div class="row g-4 justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><strong>Enter ID</strong></div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Type the ID and press Enter to submit.
+                </p>
+                <form method="POST" action="{{ url_for('attendance.scan_submit') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="code" class="form-control form-control-lg text-center"
+                           placeholder="Enter ID..." autocomplete="off" inputmode="numeric" autofocus required>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

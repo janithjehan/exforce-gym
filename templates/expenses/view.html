@@ -48,7 +48,7 @@
 {% if expense.is_payroll_generated %}
 <div class="alert alert-info d-flex align-items-center gap-2 mb-4" style="font-size:13px;">
     <i class="fa-solid fa-lock"></i>
-    Auto-generated from <a href="{{ url_for('payroll.view_payroll', payroll_id=expense.payroll_id) }}">Payroll #{{ expense.payroll_id }}</a> — kept in sync, not independently editable.
+    Auto-generated from <a href="{{ url_for('payroll.view_payroll', payroll_id=expense.payroll_id) }}">Payroll #{{ expense.payroll_id }}</a> - kept in sync, not independently editable.
 </div>
 {% endif %}
 
@@ -74,7 +74,7 @@
                         {% if expense.description %}
                         {{ expense.description }}
                         {% else %}
-                        <span class="text-muted">—</span>
+                        <span class="text-muted">-</span>
                         {% endif %}
                     </dd>
                 </dl>

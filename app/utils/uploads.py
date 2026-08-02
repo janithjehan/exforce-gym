@@ -1,40 +1,19 @@
-"""Shared image-upload helpers for static uploads (avatars, equipment, ...).
+"""Shared image-upload helper — reads an upload into DB-storable bytes.
 
-Files are stored under app/static/uploads/<subdir>/ with a unique uuid name,
-so `url_for('static', filename='uploads/<subdir>/<name>')` serves them.
-Deletion is best-effort — filesystem errors never block a request.
+Images (avatars, equipment, ...) are stored as binary data directly on their
+owning row, not on the filesystem, so they survive redeploys on hosts with no
+persistent disk.
 """
-import os
-import uuid
+import mimetypes
 
-from flask import current_app
 from werkzeug.utils import secure_filename
 
 ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
 
 
-def _dir(subdir):
-    path = os.path.join(current_app.static_folder, 'uploads', subdir)
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def save_image(file_storage, subdir):
-    """Store an uploaded image under uploads/<subdir>/; return the stored filename."""
+def read_image_bytes(file_storage):
+    """Read an uploaded image into (data, mimetype) for storage as a DB blob."""
     original = secure_filename(file_storage.filename or '')
     ext = original.rsplit('.', 1)[-1].lower() if '.' in original else 'jpg'
-    filename = f'{uuid.uuid4().hex}.{ext}'
-    file_storage.save(os.path.join(_dir(subdir), filename))
-    return filename
-
-
-def delete_image(filename, subdir):
-    """Best-effort delete of uploads/<subdir>/<filename> — never raises."""
-    if not filename:
-        return
-    path = os.path.join(_dir(subdir), filename)
-    try:
-        if os.path.isfile(path):
-            os.remove(path)
-    except OSError:
-        pass
+    mimetype = file_storage.mimetype or mimetypes.guess_type(original)[0] or f'image/{ext}'
+    return file_storage.read(), mimetype

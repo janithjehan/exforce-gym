@@ -211,7 +211,7 @@ def member():
         )
         recent_attendance = (
             Attendance.query
-            .filter_by(member_id=current_user.member_profile.id)
+            .filter_by(user_id=current_user.id)
             .order_by(Attendance.check_in.desc())
             .limit(5)
             .all()

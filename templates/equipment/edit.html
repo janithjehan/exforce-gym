@@ -48,11 +48,11 @@
                         </div>
                     </div>
 
-                    {% if item.image_path %}
+                    {% if item.image_url %}
                     <div class="mb-3">
                         <label class="form-label">Current Image</label>
                         <div class="d-flex align-items-center gap-3">
-                            <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}"
+                            <img src="{{ item.image_url }}" alt="{{ item.name }}"
                                  class="rounded border" style="width:90px;height:90px;object-fit:cover;">
                             <div class="form-check">
                                 {{ form.remove_image(class='form-check-input') }}
@@ -67,7 +67,7 @@
                         {{ form.image(class='form-control' + (' is-invalid' if form.image.errors else '')) }}
                         {% for e in form.image.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         <div class="form-text">
-                            {% if item.image_path %}Uploading a new image replaces the current one.{% else %}Optional. JPG, PNG, GIF or WebP.{% endif %}
+                            {% if item.image_url %}Uploading a new image replaces the current one.{% else %}Optional. JPG, PNG, GIF or WebP.{% endif %}
                         </div>
                     </div>
 
