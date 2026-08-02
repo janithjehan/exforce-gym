@@ -6,10 +6,12 @@ from app.blueprints.trainers import trainers_bp
 from app.blueprints.trainers.forms import TrainerCreateForm, TrainerEditForm, TrainerSelfEditForm
 from app.extensions import db
 from app.models.trainer import Trainer
+from app.models.member import Gender
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_required, admin_or_manager_required
 from app.utils.search import parse_search_terms, multi_term_filter
-from app.utils.validators import clean_nic
+from app.utils.uploads import read_image_bytes
+from app.utils.validators import clean_nic, parse_nic
 
 TRAINERS_PER_PAGE = 15
 
@@ -19,7 +21,7 @@ TRAINERS_PER_PAGE = 15
 def list_trainers():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
-    status_filter = request.args.get('status', 'active')
+    status_filter = request.args.get('status', 'all')
 
     query = (
         Trainer.query
@@ -74,9 +76,13 @@ def create_trainer():
             created_by_id=current_user.id,
         )
         user.set_password(clean_nic(form.nic_no.data))
+        if form.photo.data:
+            user.avatar_data, user.avatar_mimetype = read_image_bytes(form.photo.data)
         db.session.add(user)
         db.session.flush()
 
+        # DOB/gender are derived from the NIC — the NIC is authoritative
+        nic_dob, nic_gender = parse_nic(form.nic_no.data)
         trainer = Trainer(
             user_id=user.id,
             specialization=form.specialization.data.strip() or None,
@@ -84,6 +90,8 @@ def create_trainer():
             experience_years=form.experience_years.data,
             certifications=form.certifications.data.strip() or None,
             contact_no=form.contact_no.data.strip(),
+            date_of_birth=nic_dob or form.date_of_birth.data,
+            gender=Gender(nic_gender) if nic_gender else None,
             created_by_id=current_user.id,
         )
         db.session.add(trainer)
@@ -107,9 +115,12 @@ def view_trainer(trainer_id):
         else:
             abort(403)
 
+    recent_attendance = trainer.user.attendances.limit(5).all()
+
     return render_template(
         'trainers/view.html',
         trainer=trainer,
+        recent_attendance=recent_attendance,
         title=trainer.full_name,
     )
 
@@ -129,6 +140,8 @@ def edit_trainer(trainer_id):
         form.last_name.data = trainer.user.last_name
         form.phone.data = trainer.user.phone
         form.nic_no.data = trainer.user.nic_no
+        form.date_of_birth.data = trainer.date_of_birth
+        form.gender.data = trainer.gender.value if trainer.gender else ''
 
     if form.validate_on_submit():
         trainer.user.first_name = form.first_name.data.strip()
@@ -143,6 +156,8 @@ def edit_trainer(trainer_id):
         trainer.experience_years = form.experience_years.data
         trainer.certifications = form.certifications.data.strip() or None
         trainer.contact_no = form.contact_no.data.strip() if form.contact_no.data else ''
+        trainer.date_of_birth = form.date_of_birth.data or None
+        trainer.gender = Gender(form.gender.data) if form.gender.data else None
         trainer.updated_by_id = current_user.id
         trainer.updated_at = datetime.utcnow()
         db.session.commit()
@@ -154,7 +169,7 @@ def edit_trainer(trainer_id):
         'trainers/edit.html',
         form=form,
         trainer=trainer,
-        title=f'Edit — {trainer.full_name}',
+        title=f'Edit - {trainer.full_name}',
     )
 
 
@@ -212,8 +227,9 @@ def my_profile():
 @trainers_bp.route('/my-profile/edit', methods=['GET', 'POST'])
 @login_required
 def my_profile_edit():
-    """Trainer self-service: mobile number + NIC only. Everything else
-    (name, specialization, bio, certifications, etc.) stays admin-managed.
+    """Trainer self-service: mobile number + NIC only (DOB/gender are
+    re-derived from the NIC automatically). Everything else (name,
+    specialization, bio, certifications, etc.) stays admin-managed.
     """
     if current_user.role != UserRole.TRAINER:
         return redirect(url_for('dashboard.home'))
@@ -235,8 +251,20 @@ def my_profile_edit():
         trainer.user.nic_no = clean_nic(form.nic_no.data)
         trainer.user.updated_by_id = current_user.id
         trainer.user.updated_at = datetime.utcnow()
+
+        # NIC is authoritative for DOB/gender — re-derive whenever it changes
+        nic_dob, nic_gender = parse_nic(form.nic_no.data)
+        trainer.date_of_birth = nic_dob
+        trainer.gender = Gender(nic_gender) if nic_gender else None
+
         trainer.updated_by_id = current_user.id
         trainer.updated_at = datetime.utcnow()
+
+        if form.photo.data:
+            trainer.user.avatar_data, trainer.user.avatar_mimetype = read_image_bytes(form.photo.data)
+        elif form.remove_photo.data:
+            trainer.user.avatar_data = None
+            trainer.user.avatar_mimetype = None
 
         db.session.commit()
         flash('Your contact details have been updated.', 'success')

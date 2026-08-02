@@ -1,19 +1,18 @@
 from datetime import datetime, date, timedelta
-from flask import render_template, redirect, url_for, flash, request, abort, jsonify
+from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import current_user, login_required
 
 from app.blueprints.attendance import attendance_bp
 from app.blueprints.attendance.forms import AttendanceCreateForm
 from app.extensions import db
 from app.models.attendance import Attendance
-from app.models.member import Member
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
 from app.utils.timezones import to_utc, to_local
 
 ATTENDANCE_PER_PAGE = 20
-SCAN_DEBOUNCE_SECONDS = 8  # ignore a repeat scan of the same member's card within this window
+SCAN_DEBOUNCE_SECONDS = 8  # ignore a repeat scan/entry of the same id within this window
 
 
 @attendance_bp.route('/')
@@ -22,18 +21,21 @@ def list_attendance():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
     date_filter = request.args.get('date', '')
+    role_filter = request.args.get('role', '')
 
-    query = (
-        Attendance.query
-        .join(Member, Attendance.member_id == Member.id)
-        .join(User, Member.user_id == User.id)
-    )
+    query = Attendance.query.join(User, Attendance.user_id == User.id)
 
     terms = parse_search_terms(search)
     if terms:
         query = query.filter(multi_term_filter(terms, [
             User.first_name, User.last_name,
         ]))
+
+    if role_filter:
+        try:
+            query = query.filter(User.role == UserRole(role_filter))
+        except ValueError:
+            pass
 
     if date_filter:
         try:
@@ -66,6 +68,8 @@ def list_attendance():
         records=records,
         search=search,
         date_filter=date_filter,
+        role_filter=role_filter,
+        user_roles=UserRole,
         stats=stats,
         title='Attendance',
     )
@@ -76,18 +80,17 @@ def list_attendance():
 def create_attendance():
     form = AttendanceCreateForm()
 
-    members = (
-        Member.query
-        .join(User, Member.user_id == User.id)
-        .filter(Member.is_archived == False)  # noqa: E712
-        .order_by(User.first_name.asc())
+    users = (
+        User.query
+        .filter(User.is_active == True, User.is_archived == False)  # noqa: E712
+        .order_by(User.role.asc(), User.first_name.asc())
         .all()
     )
-    form.member_id.choices = [(m.id, f'{m.full_name} ({m.email})') for m in members]
+    form.user_id.choices = [(u.id, f'{u.full_name} ({u.role.label})') for u in users]
 
-    preselect_member_id = request.args.get('member_id', type=int)
-    if request.method == 'GET' and preselect_member_id:
-        form.member_id.data = preselect_member_id
+    preselect_user_id = request.args.get('user_id', type=int)
+    if request.method == 'GET' and preselect_user_id:
+        form.user_id.data = preselect_user_id
 
     if form.validate_on_submit():
         check_out = form.check_out.data or None
@@ -98,7 +101,7 @@ def create_attendance():
         # Staff enter times in local (Sri Lanka) time; persist as UTC like
         # everything else (checkout uses utcnow, displays convert back).
         record = Attendance(
-            member_id=form.member_id.data,
+            user_id=form.user_id.data,
             check_in=to_utc(form.check_in.data),
             check_out=to_utc(check_out),
             notes=form.notes.data.strip() or None,
@@ -107,8 +110,8 @@ def create_attendance():
         db.session.add(record)
         db.session.commit()
 
-        member = Member.query.get(record.member_id)
-        flash(f'Attendance recorded for {member.full_name}.', 'success')
+        person = User.query.get(record.user_id)
+        flash(f'Attendance recorded for {person.full_name}.', 'success')
         return redirect(url_for('attendance.view_attendance', attendance_id=record.id))
 
     return render_template('attendance/create.html', form=form, title='Record Attendance')
@@ -119,9 +122,11 @@ def create_attendance():
 def view_attendance(attendance_id):
     record = Attendance.query.get_or_404(attendance_id)
 
-    if current_user.role == UserRole.MEMBER:
-        if not current_user.member_profile or current_user.member_profile.id != record.member_id:
-            abort(403)
+    # Anyone can view their own record; staff (Admin/Manager/Trainer) already
+    # have full list access via the decorator on list_attendance, so only a
+    # Member needs to be restricted to their own attendance here.
+    if current_user.role == UserRole.MEMBER and record.user_id != current_user.id:
+        abort(403)
 
     return render_template(
         'attendance/view.html',
@@ -139,99 +144,88 @@ def checkout(attendance_id):
         flash('This record already has a check-out time.', 'warning')
         return redirect(url_for('attendance.view_attendance', attendance_id=record.id))
 
-    record.check_out = datetime.utcnow()
+    record.check_out = datetime.utcnow().replace(microsecond=0)
     record.updated_by_id = current_user.id
     record.updated_at = datetime.utcnow()
     db.session.commit()
 
-    flash(f'Check-out recorded for {record.member.full_name}.', 'success')
+    flash(f'Check-out recorded for {record.user.full_name}.', 'success')
     return redirect(url_for('attendance.view_attendance', attendance_id=record.id))
 
 
 @attendance_bp.route('/scan')
 @admin_manager_or_trainer_required
 def scan_kiosk():
-    """Kiosk page — a laptop/tablet browser left open at reception, decoding
-    printed member QR cards via the device camera. Runs entirely offline:
-    jsQR is vendored under app/static/vendor (no CDN), and the page is meant
-    to be opened at http://localhost so camera access works with no HTTPS
-    setup (browsers only grant camera access on a secure context — localhost
-    is exempt, a plain LAN address is not)."""
+    """Reception page — leave this open at the front desk. Staff type in
+    whoever's checking in/out's ID (shown on each person's own dashboard) and
+    press Enter; a USB/Bluetooth barcode-style keyboard-wedge device works
+    too since it just types digits + Enter into the same field."""
     return render_template('attendance/scan.html', title='Attendance Scan')
 
 
 @attendance_bp.route('/scan', methods=['POST'])
 @admin_manager_or_trainer_required
 def scan_submit():
-    """JSON API called by the kiosk page for every decoded QR code. Toggles
-    check-in/check-out on the existing Attendance model — no schema change:
-    the member's most recent Attendance row today with no check_out yet means
-    this scan is a check-out; otherwise it's a new check-in. Whichever scan
-    ends up being the member's last one for the day is therefore the checkout,
-    with no special "end of day" logic needed."""
-    payload = request.get_json(silent=True) or {}
-    raw_code = str(payload.get('code', '')).strip()
+    """Plain form POST from the kiosk page for every entered id — no JS.
+    Toggles check-in/check-out on the Attendance model: the person's most
+    recent Attendance row today with no check_out yet means this entry is a
+    check-out; otherwise it's a new check-in. Whichever entry ends up being
+    the person's last one for the day is therefore the checkout, with no
+    special "end of day" logic needed. Works the same for any role — Admin,
+    Manager, Trainer, or Member — keyed by their User id. Result is shown via
+    a flash message after redirecting back to the kiosk page."""
+    raw_code = request.form.get('code', '').strip()
 
     if not raw_code.isdigit():
-        return jsonify(ok=False, message='Unrecognized code.'), 400
+        flash('Unrecognized ID.', 'danger')
+        return redirect(url_for('attendance.scan_kiosk'))
 
-    member = Member.query.get(int(raw_code))
-    if not member or member.is_archived:
-        return jsonify(ok=False, message='Card not recognized — member not found.'), 404
-    if not member.user.is_active:
-        return jsonify(ok=False, message=f'{member.full_name}: account is inactive.'), 403
+    user = User.query.get(int(raw_code))
+    if not user:
+        flash('ID not recognized.', 'danger')
+        return redirect(url_for('attendance.scan_kiosk'))
+    if not user.is_active_account:
+        flash(f'{user.full_name}: account is inactive.', 'danger')
+        return redirect(url_for('attendance.scan_kiosk'))
 
-    now = datetime.utcnow()
-    latest = member.attendances.first()
+    now = datetime.utcnow().replace(microsecond=0)
+    latest = user.attendances.first()
 
-    # Debounce — ignore a repeat decode of the same card held in front of the
-    # camera for a couple of seconds, which would otherwise flap check-in/out.
+    # Debounce — ignore a repeat entry of the same id within a couple of
+    # seconds (e.g. a handheld scanner double-firing).
     last_event_at = (latest.check_out or latest.check_in) if latest else None
     if last_event_at and (now - last_event_at).total_seconds() < SCAN_DEBOUNCE_SECONDS:
-        action = 'check_out' if latest.check_out else 'check_in'
-        return jsonify(
-            ok=True, duplicate=True, action=action, member=member.full_name,
-            message=f'{member.full_name} — already recorded, please wait a moment.',
-        )
+        flash(f'{user.full_name} - already recorded, please wait a moment.', 'warning')
+        return redirect(url_for('attendance.scan_kiosk'))
 
     if latest and latest.check_in.date() == now.date() and latest.check_out is None:
         latest.check_out = now
         latest.updated_by_id = current_user.id
         latest.updated_at = now
         db.session.commit()
-        return jsonify(
-            ok=True, action='check_out', member=member.full_name,
-            time=to_local(now).strftime('%H:%M'),
-            message=f'{member.full_name} — checked out.',
-        )
+        flash(f'{user.full_name} - checked out at {to_local(now).strftime("%H:%M")}.', 'primary')
+        return redirect(url_for('attendance.scan_kiosk'))
 
     record = Attendance(
-        member_id=member.id,
+        user_id=user.id,
         check_in=now,
         created_by_id=current_user.id,
     )
     db.session.add(record)
     db.session.commit()
-    return jsonify(
-        ok=True, action='check_in', member=member.full_name,
-        time=to_local(now).strftime('%H:%M'),
-        message=f'{member.full_name} — checked in.',
-    )
+    flash(f'{user.full_name} - checked in at {to_local(now).strftime("%H:%M")}.', 'success')
+    return redirect(url_for('attendance.scan_kiosk'))
 
 
 @attendance_bp.route('/my-attendance')
 @login_required
 def my_attendance():
-    if current_user.role in (UserRole.ADMIN, UserRole.MANAGER, UserRole.TRAINER):
-        return redirect(url_for('attendance.list_attendance'))
-
-    if not current_user.member_profile:
-        abort(403)
-
+    """Self-service attendance history — available to every role now that
+    Attendance is keyed by User id, not just Member."""
     page = request.args.get('page', 1, type=int)
     records = (
         Attendance.query
-        .filter_by(member_id=current_user.member_profile.id)
+        .filter_by(user_id=current_user.id)
         .order_by(Attendance.check_in.desc())
         .paginate(page=page, per_page=ATTENDANCE_PER_PAGE, error_out=False)
     )

@@ -6,12 +6,20 @@
         <h2>Trainer Dashboard</h2>
         <p>Welcome back, <strong>{{ current_user.first_name }}</strong>.</p>
     </div>
-    {% if trainer_profile %}
-    <a href="{{ url_for('trainers.view_trainer', trainer_id=trainer_profile.id) }}"
-       class="btn btn-outline-primary btn-sm">
-        <i class="fa-solid fa-id-card me-1"></i>View Full Profile
-    </a>
-    {% endif %}
+    <div class="d-flex flex-column align-items-end gap-2">
+        {% if trainer_profile %}
+        <a href="{{ url_for('trainers.view_trainer', trainer_id=trainer_profile.id) }}"
+           class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-id-card me-1"></i>View Full Profile
+        </a>
+        {% endif %}
+        <div class="text-end">
+            <span class="badge bg-dark bg-opacity-75 px-3 py-2" style="font-size:13px;">
+                <i class="fa-solid fa-id-card me-1"></i>Your Attendance ID: {{ current_user.id }}
+            </span>
+            <div class="text-muted small mt-1">Use this at the attendance kiosk to check in/out</div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">

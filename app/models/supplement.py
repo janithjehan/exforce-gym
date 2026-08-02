@@ -73,7 +73,7 @@ class Supplement(db.Model):
     @property
     def price_label(self):
         if self.price is None:
-            return '—'
+            return '-'
         return f'Rs. {self.price:,.2f}'
 
     @property

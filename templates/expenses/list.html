@@ -85,7 +85,7 @@
                         <td><span class="badge bg-{{ exp.category.badge_class }}">{{ exp.category.label }}</span></td>
                         <td>
                             <a href="{{ url_for('expenses.view_expense', expense_id=exp.id) }}" class="text-decoration-none">
-                                {{ exp.description or '—' }}
+                                {{ exp.description or '-' }}
                             </a>
                             {% if exp.is_payroll_generated %}
                             <i class="fa-solid fa-lock text-muted ms-1" title="Auto-generated from Payroll"></i>

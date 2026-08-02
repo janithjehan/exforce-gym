@@ -32,7 +32,7 @@ def send_email(to, subject, body):
     """
     if not is_mail_configured():
         logger.info(
-            "MAIL_ENABLED is off or incomplete — logging email instead of sending.\n"
+            "MAIL_ENABLED is off or incomplete - logging email instead of sending.\n"
             "To: %s\nSubject: %s\n%s", to, subject, body,
         )
         print(f"\n--- [DEV] Email not sent (MAIL_ENABLED=False) ---\nTo: {to}\nSubject: {subject}\n\n{body}\n---\n")

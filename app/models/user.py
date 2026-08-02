@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from flask import url_for
 from flask_login import UserMixin
 from app.extensions import db, bcrypt
 
@@ -29,8 +30,10 @@ class User(db.Model, UserMixin):
     phone = db.Column(db.String(20), nullable=True)
     # Required (form-level) for MANAGER accounts; optional for other roles
     nic_no = db.Column(db.String(20), nullable=True)
-    # Profile photo — stored filename under app/static/uploads/avatars/
-    avatar_filename = db.Column(db.String(255), nullable=True)
+    # Profile photo — stored as binary data in the DB (survives redeploys on
+    # hosts with no persistent filesystem, unlike app/static/uploads/)
+    avatar_data = db.Column(db.LargeBinary, nullable=True)
+    avatar_mimetype = db.Column(db.String(50), nullable=True)
 
     # Role & status
     role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.MEMBER)
@@ -94,10 +97,10 @@ class User(db.Model, UserMixin):
 
     @property
     def avatar_url(self):
-        """Static-relative path for url_for('static', filename=...); None if unset."""
-        if not self.avatar_filename:
+        """URL that streams the avatar image from the DB; None if unset."""
+        if not self.avatar_data:
             return None
-        return f'uploads/avatars/{self.avatar_filename}'
+        return url_for('users.avatar_image', user_id=self.id)
 
     @property
     def initials(self):

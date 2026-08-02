@@ -6,7 +6,8 @@ class Attendance(db.Model):
     __tablename__ = 'attendances'
 
     id = db.Column(db.Integer, primary_key=True)
-    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False)
+    # Any role (Admin/Manager/Trainer/Member) checks in/out under their own User id.
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     check_in = db.Column(db.DateTime, nullable=False)
     check_out = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -18,8 +19,8 @@ class Attendance(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    member = db.relationship(
-        'Member', foreign_keys=[member_id],
+    user = db.relationship(
+        'User', foreign_keys=[user_id],
         backref=db.backref('attendances', lazy='dynamic',
                            order_by='Attendance.check_in.desc()')
     )
@@ -40,7 +41,7 @@ class Attendance(db.Model):
     def duration_label(self):
         mins = self.duration_minutes
         if mins is None:
-            return '—'
+            return '-'
         h, m = divmod(mins, 60)
         if h:
             return f'{h}h {m}m' if m else f'{h}h'
@@ -51,4 +52,4 @@ class Attendance(db.Model):
         return self.check_in.date()
 
     def __repr__(self):
-        return f'<Attendance member={self.member_id} in={self.check_in}>'
+        return f'<Attendance user={self.user_id} in={self.check_in}>'

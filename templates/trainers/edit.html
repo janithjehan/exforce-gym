@@ -56,6 +56,16 @@
                             {{ form.contact_no(class='form-control' + (' is-invalid' if form.contact_no.errors else '')) }}
                             {% for e in form.contact_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
+                        <div class="col-6">
+                            {{ form.date_of_birth.label(class='form-label') }}
+                            {{ form.date_of_birth(class='form-control' + (' is-invalid' if form.date_of_birth.errors else ''), type='date') }}
+                            {% for e in form.date_of_birth.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-6">
+                            {{ form.gender.label(class='form-label') }}
+                            {{ form.gender(class='form-select' + (' is-invalid' if form.gender.errors else '')) }}
+                            {% for e in form.gender.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -16,7 +16,7 @@
     </div>
 </div>
 
-<form method="POST" action="{{ url_for('members.create_member') }}" novalidate>
+<form method="POST" action="{{ url_for('members.create_member') }}" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
 
     <div class="row g-4">
@@ -58,6 +58,12 @@
                             {{ form.nic_no(class='form-control' + (' is-invalid' if form.nic_no.errors else ''), onchange='OnchangeNic(this.value)') }}
                             {% for e in form.nic_no.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                             <div id="nicClientError" class="text-danger d-none" style="font-size:12.5px;"></div>
+                        </div>
+                        <div class="col-12">
+                            {{ form.photo.label(class='form-label') }}
+                            {{ form.photo(class='form-control' + (' is-invalid' if form.photo.errors else ''), accept='image/*') }}
+                            {% for e in form.photo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            <div class="form-text">Optional. JPG, PNG, GIF or WebP, up to 3 MB.</div>
                         </div>
                         <div class="col-12">
                             <div class="alert alert-info py-2 mb-0" style="font-size:12.5px;">

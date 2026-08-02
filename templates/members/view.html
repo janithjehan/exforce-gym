@@ -24,9 +24,6 @@
         <a href="{{ url_for('users.view_user', user_id=member.user_id) }}" class="btn btn-outline-secondary btn-sm">
             <i class="fa-solid fa-users-gear me-1"></i>User Account
         </a>
-        <a href="{{ url_for('members.qr_card', member_id=member.id) }}" class="btn btn-outline-secondary btn-sm">
-            <i class="fa-solid fa-qrcode me-1"></i>Print QR Card
-        </a>
         <form method="POST" action="{{ url_for('members.archive_member', member_id=member.id) }}"
               onsubmit="return confirm('Archive {{ member.full_name }}?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -241,13 +238,13 @@
             <div class="card-header">
                 <span><i class="fa-solid fa-person-walking text-orange me-2"></i>Attendance History</span>
                 {% if current_user.role.value == 'admin' and not member.is_archived %}
-                <a href="{{ url_for('attendance.create_attendance', member_id=member.id) }}"
+                <a href="{{ url_for('attendance.create_attendance', user_id=member.user_id) }}"
                    class="btn btn-sm btn-outline-primary">
                     <i class="fa-solid fa-plus me-1"></i>Record
                 </a>
                 {% endif %}
             </div>
-            {% set recent_att = member.attendances.limit(5).all() %}
+            {% set recent_att = member.user.attendances.limit(5).all() %}
             {% if recent_att %}
             <div class="card-body p-0">
                 <ul class="list-group list-group-flush" style="font-size:13.5px;">
@@ -267,7 +264,7 @@
                                 {% else %}
                                 <span class="badge bg-success bg-opacity-15 text-success">In Gym</span>
                                 {% endif %}
-                                {% if current_user.role.value in ('admin', 'trainer') %}
+                                {% if current_user.role.value in ('admin', 'manager', 'trainer') %}
                                 <a href="{{ url_for('attendance.view_attendance', attendance_id=r.id) }}"
                                    class="btn btn-sm btn-outline-secondary">View</a>
                                 {% endif %}
@@ -276,10 +273,10 @@
                     </li>
                     {% endfor %}
                 </ul>
-                {% if member.attendances.count() > 5 %}
+                {% if member.user.attendances.count() > 5 %}
                 <div class="text-center py-2 border-top" style="font-size:13px;">
                     <a href="{{ url_for('attendance.list_attendance', search=member.full_name) }}">
-                        View all {{ member.attendances.count() }} records
+                        View all {{ member.user.attendances.count() }} records
                     </a>
                 </div>
                 {% endif %}

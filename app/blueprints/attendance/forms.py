@@ -4,7 +4,7 @@ from wtforms.validators import DataRequired, Optional, Length
 
 
 class AttendanceCreateForm(FlaskForm):
-    member_id = SelectField('Member', coerce=int, validators=[DataRequired()])
+    user_id = SelectField('Person', coerce=int, validators=[DataRequired()])
     check_in = DateTimeField(
         'Check-In Time',
         format='%Y-%m-%dT%H:%M',

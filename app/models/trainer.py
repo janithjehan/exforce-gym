@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 from app.extensions import db
+from app.models.member import Gender
 
 
 class Trainer(db.Model):
@@ -13,6 +14,9 @@ class Trainer(db.Model):
     experience_years = db.Column(db.Integer, nullable=True)
     certifications = db.Column(db.Text, nullable=True)
     contact_no = db.Column(db.String(20), nullable=False, default='')
+
+    date_of_birth = db.Column(db.Date, nullable=True)
+    gender = db.Column(db.Enum(Gender), nullable=True)
 
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
@@ -45,6 +49,16 @@ class Trainer(db.Model):
     @property
     def is_profile_complete(self):
         return bool(self.specialization and self.specialization.strip())
+
+    @property
+    def age(self):
+        if not self.date_of_birth:
+            return None
+        today = date.today()
+        return (
+            today.year - self.date_of_birth.year
+            - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+        )
 
     @property
     def status_label(self):

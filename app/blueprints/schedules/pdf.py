@@ -22,7 +22,7 @@ def build_schedule_pdf(schedule):
         buf, pagesize=A4,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=16 * mm, bottomMargin=16 * mm,
-        title=f'Workout Schedule — {schedule.title}',
+        title=f'Workout Schedule - {schedule.title}',
     )
 
     styles = getSampleStyleSheet()
@@ -37,7 +37,7 @@ def build_schedule_pdf(schedule):
                                 textColor=MUTED, spaceBefore=8)
 
     story = [
-        Paragraph('EXFORCE GYM — Workout Schedule', h1),
+        Paragraph('EXFORCE GYM - Workout Schedule', h1),
         Paragraph(
             f'{schedule.title} &nbsp;&middot;&nbsp; {schedule.date_range_label} '
             f'&nbsp;&middot;&nbsp; Status: {schedule.status.label} '
@@ -80,7 +80,7 @@ def build_schedule_pdf(schedule):
                 str(it.sets),
                 it.reps,
                 it.rest_label,
-                Paragraph(it.notes or '—', normal),
+                Paragraph(it.notes or '-', normal),
             ])
         t = Table(rows, colWidths=[48 * mm, 30 * mm, 13 * mm, 18 * mm, 20 * mm, 45 * mm])
         t.setStyle(TableStyle([

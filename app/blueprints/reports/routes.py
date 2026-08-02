@@ -35,7 +35,7 @@ def profit_report():
 
     if not start_date or not end_date or start_date > end_date:
         if request.args.get('start_date') or request.args.get('end_date'):
-            flash('Invalid date range — showing this month instead.', 'warning')
+            flash('Invalid date range - showing this month instead.', 'warning')
         start_date, end_date = default_start, default_end
 
     income_total = db.session.query(

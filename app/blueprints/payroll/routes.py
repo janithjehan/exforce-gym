@@ -162,7 +162,7 @@ def create_payroll():
         db.session.add(record)
         db.session.commit()
 
-        flash(f'Payroll record created for {staff.full_name} — {period.strftime("%B %Y")}.', 'success')
+        flash(f'Payroll record created for {staff.full_name} - {period.strftime("%B %Y")}.', 'success')
         return redirect(url_for('payroll.view_payroll', payroll_id=record.id))
 
     return render_template('payroll/create.html', form=form, title='Create Payroll Record')
@@ -336,7 +336,7 @@ def mark_paid(payroll_id):
             category=ExpenseCategory.SALARY,
             amount=record.net_amount,
             expense_date=record.payment_date,
-            description=f'Salary — {record.user.full_name} ({record.period_label})',
+            description=f'Salary - {record.user.full_name} ({record.period_label})',
             payroll_id=record.id,
             created_by_id=current_user.id,
         ))
@@ -349,7 +349,7 @@ def mark_paid(payroll_id):
         return redirect(url_for('payroll.view_payroll', payroll_id=record.id))
 
     return render_template(
-        'payroll/mark_paid.html', form=form, record=record, title=f'Mark Paid — Payroll #{record.id}'
+        'payroll/mark_paid.html', form=form, record=record, title=f'Mark Paid - Payroll #{record.id}'
     )
 
 

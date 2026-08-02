@@ -109,7 +109,7 @@ def submit_feedback():
         db.session.add(record)
         db.session.commit()
 
-        flash('Thank you — your feedback has been submitted.', 'success')
+        flash('Thank you - your feedback has been submitted.', 'success')
         return redirect(url_for('feedback.my_feedback'))
 
     return render_template('feedback/submit.html', form=form, title='Submit Feedback')
@@ -163,7 +163,7 @@ def respond_feedback(feedback_id):
 
         flash('Feedback updated.', 'success')
     else:
-        flash('Could not update feedback — check the form values.', 'danger')
+        flash('Could not update feedback - check the form values.', 'danger')
 
     return redirect(url_for('feedback.view_feedback', feedback_id=record.id))
 

@@ -7,8 +7,10 @@ from app.blueprints.members.forms import MemberCreateForm, MemberEditForm, Membe
 from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.member import Member, Gender
+from app.models.membership import Membership, MembershipStatus
 from app.utils.decorators import admin_required, admin_or_manager_required
 from app.utils.search import parse_search_terms, multi_term_filter
+from app.utils.uploads import read_image_bytes
 from app.utils.validators import clean_nic, parse_nic
 
 MEMBERS_PER_PAGE = 15
@@ -48,6 +50,10 @@ def list_members():
         Member.is_archived == False,
         db.or_(Member.contact_no == '', Member.contact_no == None),
     ).count()
+    active_memberships = Membership.query.filter(
+        Membership.status == MembershipStatus.ACTIVE,
+        Membership.end_date >= date.today(),
+    ).count()
 
     return render_template(
         'members/list.html',
@@ -56,6 +62,7 @@ def list_members():
         status_filter=status_filter,
         total=total,
         incomplete=incomplete,
+        active_memberships=active_memberships,
         title='Members',
     )
 
@@ -78,6 +85,8 @@ def create_member():
             created_by_id=current_user.id,
         )
         user.set_password(clean_nic(form.nic_no.data))
+        if form.photo.data:
+            user.avatar_data, user.avatar_mimetype = read_image_bytes(form.photo.data)
         db.session.add(user)
         db.session.flush()  # get user.id before committing
 
@@ -117,31 +126,6 @@ def view_member(member_id):
             abort(403)
 
     return render_template('members/view.html', member=member, title=member.full_name)
-
-
-@members_bp.route('/<int:member_id>/qr-card')
-@admin_or_manager_required
-def qr_card(member_id):
-    """Printable QR card for the attendance-scan kiosk. The QR encodes the
-    member's plain numeric id — the same id the scan endpoint looks up
-    against Member.id (see app/blueprints/attendance/routes.py: scan_submit)."""
-    member = Member.query.get_or_404(member_id)
-
-    import io
-    import base64
-    import qrcode
-
-    qr_img = qrcode.make(str(member.id), border=2)
-    buf = io.BytesIO()
-    qr_img.save(buf, format='PNG')
-    qr_data_uri = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
-
-    return render_template(
-        'members/qr_card.html',
-        member=member,
-        qr_data_uri=qr_data_uri,
-        title=f'{member.full_name} — QR Card',
-    )
 
 
 @members_bp.route('/<int:member_id>/edit', methods=['GET', 'POST'])
@@ -322,6 +306,12 @@ def my_profile_edit():
         member.emergency_contact_no = form.emergency_contact_no.data.strip() or None
         member.updated_by_id = current_user.id
         member.updated_at = datetime.utcnow()
+
+        if form.photo.data:
+            member.user.avatar_data, member.user.avatar_mimetype = read_image_bytes(form.photo.data)
+        elif form.remove_photo.data:
+            member.user.avatar_data = None
+            member.user.avatar_mimetype = None
 
         db.session.commit()
         flash('Your profile has been updated.', 'success')

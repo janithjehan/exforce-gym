@@ -190,7 +190,7 @@ def edit_measurement(measurement_id):
         record.updated_at = datetime.utcnow()
         db.session.commit()
 
-        flash(f'Measurement updated — {len(changes)} field(s) changed (logged).', 'success')
+        flash(f'Measurement updated - {len(changes)} field(s) changed (logged).', 'success')
         return redirect(url_for('measurements.view_measurement', measurement_id=record.id))
 
     return render_template(

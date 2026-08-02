@@ -1,12 +1,15 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import (
-    StringField, TextAreaField, IntegerField, SubmitField
+    StringField, TextAreaField, IntegerField, BooleanField, DateField, SelectField, SubmitField
 )
 from wtforms.validators import (
     DataRequired, Email, Length, Optional, Regexp,
     NumberRange, ValidationError,
 )
 from app.models.user import User
+from app.models.member import Gender
+from app.utils.uploads import ALLOWED_IMAGE_EXTENSIONS
 from app.utils.validators import validate_nic_format, nic_taken
 
 
@@ -51,6 +54,16 @@ class TrainerCreateForm(FlaskForm):
         'Contact No',
         validators=[DataRequired(), Length(max=20)],
         render_kw={'placeholder': '+94 xx xxx xxxx'},
+    )
+    date_of_birth = DateField('Date of Birth', validators=[Optional()])
+    gender = SelectField(
+        'Gender',
+        choices=[('', '— Auto from NIC —')] + [(g.value, g.label) for g in Gender],
+        validators=[Optional()],
+    )
+    photo = FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
     )
 
     submit = SubmitField('Create Trainer')
@@ -101,6 +114,12 @@ class TrainerEditForm(FlaskForm):
         validators=[Optional(), Length(max=20)],
         render_kw={'placeholder': '+94 xx xxx xxxx'},
     )
+    date_of_birth = DateField('Date of Birth', validators=[Optional()])
+    gender = SelectField(
+        'Gender',
+        choices=[('', '— Select —')] + [(g.value, g.label) for g in Gender],
+        validators=[Optional()],
+    )
 
     submit = SubmitField('Save Changes')
 
@@ -128,6 +147,11 @@ class TrainerSelfEditForm(FlaskForm):
         validators=[DataRequired(), Length(max=20), validate_nic_format],
         render_kw={'placeholder': 'e.g. 991234567V or 200012345678'},
     )
+    photo = FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
+    )
+    remove_photo = BooleanField('Remove current photo')
     submit = SubmitField('Save Changes')
 
     def __init__(self, user_id=None, *args, **kwargs):

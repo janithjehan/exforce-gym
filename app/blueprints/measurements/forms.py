@@ -10,7 +10,7 @@ def _value_field(label, unit):
         f'{label} ({unit})',
         places=2,
         validators=[Optional(), NumberRange(min=0, max=999, message='Enter a valid value.')],
-        render_kw={'step': '0.1', 'min': '0', 'placeholder': '—'},
+        render_kw={'step': '0.1', 'min': '0', 'placeholder': '-'},
     )
 
 

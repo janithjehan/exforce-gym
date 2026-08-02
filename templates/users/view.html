@@ -47,6 +47,14 @@
             </button>
         </form>
         {% endif %}
+        {% else %}
+        <form method="POST" action="{{ url_for('users.restore_user', user_id=user.id) }}"
+              onsubmit="return confirm('Restore {{ user.username }}? Their account will be re-activated.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="fa-solid fa-trash-arrow-up me-1"></i>Restore
+            </button>
+        </form>
         {% endif %}
     </div>
 </div>

@@ -1,5 +1,5 @@
 from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, abort
+from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user, login_required
 
 from app.blueprints.users import users_bp
@@ -10,10 +10,25 @@ from app.models.member import Member, Gender
 from app.models.trainer import Trainer
 from app.utils.decorators import admin_required, log_activity
 from app.utils.search import parse_search_terms, multi_term_filter
-from app.utils.uploads import save_image, delete_image
+from app.utils.uploads import read_image_bytes
 from app.utils.validators import clean_nic, parse_nic
 
 USERS_PER_PAGE = 15
+
+
+@users_bp.route('/<int:user_id>/avatar-image')
+@login_required
+def avatar_image(user_id):
+    """Streams a user's profile photo straight from the DB. Any authenticated
+    role can view any user's avatar — same exposure static files always had."""
+    user = User.query.get_or_404(user_id)
+    if not user.avatar_data:
+        abort(404)
+    return Response(
+        user.avatar_data,
+        mimetype=user.avatar_mimetype or 'image/jpeg',
+        headers={'Cache-Control': 'private, max-age=86400'},
+    )
 
 
 @users_bp.route('/')
@@ -81,7 +96,7 @@ def create_user():
         )
         user.set_password(clean_nic(form.nic_no.data))
         if form.photo.data:
-            user.avatar_filename = save_image(form.photo.data, 'avatars')
+            user.avatar_data, user.avatar_mimetype = read_image_bytes(form.photo.data)
         db.session.add(user)
         db.session.flush()  # get user.id
 
@@ -166,11 +181,10 @@ def edit_user(user_id):
             user.set_password(form.password.data)
 
         if form.photo.data:
-            delete_image(user.avatar_filename, 'avatars')
-            user.avatar_filename = save_image(form.photo.data, 'avatars')
+            user.avatar_data, user.avatar_mimetype = read_image_bytes(form.photo.data)
         elif form.remove_photo.data:
-            delete_image(user.avatar_filename, 'avatars')
-            user.avatar_filename = None
+            user.avatar_data = None
+            user.avatar_mimetype = None
 
         # Role changed to MEMBER/TRAINER: make sure the matching profile exists
         # (same auto-creation as create_user, otherwise member/trainer pages break)
@@ -279,6 +293,20 @@ def archive_user(user_id):
     db.session.commit()
     flash(f'User "{user.username}" has been archived.', 'secondary')
     return redirect(url_for('users.list_users'))
+
+
+@users_bp.route('/<int:user_id>/restore', methods=['POST'])
+@admin_required
+def restore_user(user_id):
+    user = User.query.get_or_404(user_id)
+
+    user.is_archived = False
+    user.is_active = True
+    user.updated_by_id = current_user.id
+    user.updated_at = datetime.utcnow()
+    db.session.commit()
+    flash(f'User "{user.username}" has been restored.', 'success')
+    return redirect(url_for('users.view_user', user_id=user_id))
 
 
 @users_bp.route('/<int:user_id>/reset-password', methods=['GET', 'POST'])

@@ -16,9 +16,9 @@
 <div class="page-header">
     <div class="page-header-title">
         <h2>Attendance #{{ record.id }}</h2>
-        <p>{{ record.member.full_name }} — {{ record.check_in.strftime('%d %b %Y') }}</p>
+        <p>{{ record.user.full_name }} ({{ record.user.role.label }}) - {{ record.check_in.strftime('%d %b %Y') }}</p>
     </div>
-    {% if current_user.role.value in ('admin', 'trainer') and not record.is_checked_out %}
+    {% if current_user.role.value in ('admin', 'manager', 'trainer') and not record.is_checked_out %}
     <form method="POST" action="{{ url_for('attendance.checkout', attendance_id=record.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-success">
@@ -37,13 +37,16 @@
             <div class="card-body">
                 <ul class="list-unstyled mb-0" style="font-size:13.5px;">
                     <li class="d-flex justify-content-between py-2 border-bottom">
-                        <span class="text-muted">Member</span>
-                        {% if current_user.role.value != 'member' %}
-                        <a href="{{ url_for('members.view_member', member_id=record.member.id) }}"
-                           class="fw-semibold text-decoration-none">{{ record.member.full_name }}</a>
-                        {% else %}
-                        <span class="fw-semibold">{{ record.member.full_name }}</span>
-                        {% endif %}
+                        <span class="text-muted">Person</span>
+                        <span>
+                            {% if current_user.role.value != 'member' and record.user.member_profile %}
+                            <a href="{{ url_for('members.view_member', member_id=record.user.member_profile.id) }}"
+                               class="fw-semibold text-decoration-none">{{ record.user.full_name }}</a>
+                            {% else %}
+                            <span class="fw-semibold">{{ record.user.full_name }}</span>
+                            {% endif %}
+                            <span class="badge bg-light text-dark border ms-1" style="font-size:10px;">{{ record.user.role.label }}</span>
+                        </span>
                     </li>
                     <li class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Check-In</span>
@@ -83,7 +86,7 @@
                 <ul class="list-unstyled mb-0" style="font-size:13.5px;">
                     <li class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Recorded By</span>
-                        <span>{{ record.created_by.full_name if record.created_by else '—' }}</span>
+                        <span>{{ record.created_by.full_name if record.created_by else '-' }}</span>
                     </li>
                     <li class="d-flex justify-content-between py-2 {% if record.updated_by %}border-bottom{% endif %}">
                         <span class="text-muted">Recorded At</span>

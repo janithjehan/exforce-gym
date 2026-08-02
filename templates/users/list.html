@@ -148,6 +148,14 @@
                                 </button>
                             </form>
                             {% endif %}
+                            {% else %}
+                            <form method="POST" action="{{ url_for('users.restore_user', user_id=u.id) }}"
+                                  class="d-inline" onsubmit="return confirm('Restore {{ u.username }}?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                                    <i class="fa-solid fa-trash-arrow-up"></i>
+                                </button>
+                            </form>
                             {% endif %}
                         </div>
                     </td>

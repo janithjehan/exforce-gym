@@ -1005,79 +1005,156 @@ Both `installmentplanstatus` and `installmentstatus` are brand-new Postgres enum
 
 ---
 
-## QR-Based Attendance Scan (Added 2026-07-29)
+## Attendance Scan — Manual ID Entry, Extended to All Roles (Added 2026-08-02, supersedes the original QR design)
 
-### Design decision
-Fully offline — no internet, no cloud, no external CDN calls at runtime. The scanning
-kiosk is meant to be a dedicated reception PC/tablet with the browser open at
-`http://localhost:5000/attendance/scan` (logged in once as staff, left open all day),
-because browsers only grant camera access (`getUserMedia`) on a "secure context" —
-`https://` or `http://localhost` — and a plain LAN address (e.g. `http://192.168.1.20:5000`)
-gets silently blocked regardless of whether the internet is up. Using `localhost` sidesteps
-that entirely with zero certificate setup. The QR encodes the member's **plain numeric ID**
-(a deliberate simplicity-over-forgery-resistance tradeoff — low risk since this only affects
-attendance records, not payments/access).
+### What changed and why
+The original 2026-07-29 design (below history preserved via git) used a camera decoding a
+printed member QR card. That's been removed entirely — no camera, no jsQR, no QR cards — in
+favor of plain manual ID entry: staff (or a USB/Bluetooth keyboard-wedge scanner) type a
+person's numeric ID + Enter into a single input on the kiosk page. Simpler, no browser
+camera-permission friction, and no printed card to lose. At the same time, attendance was
+extended from **Members only** to **every role** — Admin, Manager, Trainer, and Member all
+check in/out through the same kiosk, keyed by their own User id.
 
-### No schema changes
-Reuses the existing `Attendance` model (`member_id`, `check_in`, `check_out` nullable) as-is.
-The scan endpoint just toggles: the member's most recent Attendance row today with no
-`check_out` yet → this scan sets `check_out`; otherwise → a new row is created with
-`check_in = now`. First scan of the day naturally becomes check-in, and whichever scan ends
-up last for the day is the checkout (or stays open if they forgot to scan out — same as the
-existing manual-entry behavior).
+### Schema change: Attendance now keys on User, not Member
+`app/models/attendance.py`: `Attendance.member_id` (FK `members.id`) → `Attendance.user_id`
+(FK `users.id`), relationship renamed `member` → `user` (backref `User.attendances`, dynamic,
+ordered by `check_in` desc). Manual migration (no Alembic):
+```sql
+ALTER TABLE attendances ADD COLUMN user_id INTEGER;
+UPDATE attendances a SET user_id = m.user_id FROM members m WHERE a.member_id = m.id;
+ALTER TABLE attendances ALTER COLUMN user_id SET NOT NULL;
+ALTER TABLE attendances ADD CONSTRAINT attendances_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE attendances DROP CONSTRAINT attendances_member_id_fkey;
+ALTER TABLE attendances DROP COLUMN member_id;
+```
+Every place that read `record.member`/`member.attendances` now reads `record.user`/
+`user.attendances` — `members/view.html` (via `member.user.attendances`), `trainers/view.html`
+(now shows a real attendance history card, via `trainer.user.attendances`, replacing the old
+"handled in the Attendance module" placeholder), `trainer_requests/routes.py`'s
+`_can_view`/`view_request` (`member.user.attendances`), and the member dashboard query
+(`Attendance.query.filter_by(user_id=current_user.id)`).
 
-### Two input paths into the same endpoint (app/blueprints/attendance/routes.py)
-- **Camera scanning** — `templates/attendance/scan.html` captures the video feed to a
-  canvas every animation frame and decodes with **jsQR**, vendored locally at
-  `app/static/vendor/jsQR.min.js` (Apache-2.0, see `jsQR.LICENSE.txt` in the same folder) —
-  fetched once during development and committed, so the kiosk page has zero CDN/internet
-  dependency at runtime. On a decode, POSTs `{code}` to `/attendance/scan`.
-- **Handheld USB/Bluetooth barcode scanner (or manual typing)** — an auto-focused text
-  input on the same page; a "keyboard wedge" scanner types the decoded text + Enter into
-  it with no camera/JS decoding involved at all, sidestepping the secure-context requirement
-  completely. Works with QR or 1D barcodes equally since it's just keystrokes. Recommended
-  as the more robust option for a fixed reception station — a $15–30 device with no browser
-  permission fuss.
-- Both paths call the same client-side `submitCode()` → same `POST /attendance/scan` JSON API.
+### Kiosk page (templates/attendance/scan.html) — zero JavaScript
+A single plain HTML `<form method="POST">` — one text input (`name="code"`, `autofocus`) plus a
+hidden CSRF field, no `<script>` block at all. Pressing Enter submits the form natively (a
+lone-input form submits on Enter with no listener needed); a USB/Bluetooth keyboard-wedge
+scanner types digits + Enter into the same field and gets the same effect. No secure-context
+requirement (there's no `getUserMedia` call), and no client-side debounce/result-banner JS —
+the result shows via the site's normal server-rendered flash message after the redirect back to
+this page. The earlier fetch()-based version (and, before that, the camera/jsQR version) are
+both gone; the vendored `app/static/vendor/jsQR.min.js` + license file were deleted, and the
+`qrcode` package was dropped from `requirements.txt`.
 
 ### Routes (app/blueprints/attendance/routes.py) — `@admin_manager_or_trainer_required`
-- `GET /attendance/scan` (`scan_kiosk`) — renders the kiosk page.
-- `POST /attendance/scan` (`scan_submit`) — JSON `{code}` in, JSON `{ok, action, member,
-  message, time}` out. Validates the code is a plain int, resolves `Member.query.get(id)`,
-  rejects archived members / inactive user accounts. `SCAN_DEBOUNCE_SECONDS = 8` — if the
-  member's last attendance event (check-in or check-out) was less than 8s ago, the scan is
-  treated as a duplicate decode of the same card still in front of the camera and returns the
-  existing state without toggling again (client-side also debounces per decoded code for 4s,
-  to avoid hammering the endpoint every ~16ms while a card sits in view — belt and suspenders).
-- CSRF: the JSON POST carries the token via the `X-CSRFToken` header (Flask-WTF's
-  `CSRFProtect` checks this header by default for AJAX requests — no `@csrf.exempt` needed,
-  unlike the PayHere notify webhook).
+- `GET /attendance/scan` (`scan_kiosk`) — renders the kiosk page. Still staff-operated (Admin/
+  Manager/Trainer log in to reach it) — a Member does not get direct access to this route; they
+  read their own ID off their own dashboard and staff (or the member, if handed the kiosk)
+  types it in.
+- `POST /attendance/scan` (`scan_submit`) — plain form POST, reads `request.form['code']` (no
+  JSON, no `fetch()`). Resolves `User.query.get(id)` and checks `user.is_active_account` (covers
+  both deactivated accounts and archived Member/Trainer profiles, since archiving already
+  cascades to deactivating the User). `SCAN_DEBOUNCE_SECONDS = 8` unchanged. On every outcome
+  (checked in / checked out / duplicate / not found / inactive) it calls `flash(...)` with an
+  appropriate category (`success`/`primary`/`warning`/`danger`) and redirects back to
+  `scan_kiosk` — no JSON response, no client-side rendering logic.
+- `GET/POST /attendance/create` — the manual entry form's dropdown (`AttendanceCreateForm.user_id`,
+  labeled "Person") now lists every active, non-archived `User` across all four roles
+  (`"{full_name} ({role.label})"`), not just Members.
+- `GET /attendance/<id>` (`view_attendance`) — access check simplified: only a MEMBER-role
+  viewer is restricted to their own row (`record.user_id != current_user.id` → 403); Admin/
+  Manager/Trainer already have full list access via the route decorator, so no per-record
+  check is needed for them.
+- `GET /attendance/my-attendance` (`my_attendance`) — no longer redirects Admin/Manager/Trainer
+  to the full list; every role now gets their own paginated history here
+  (`Attendance.query.filter_by(user_id=current_user.id)`).
 
-### Member QR cards (app/blueprints/members/routes.py)
-- `GET /members/<id>/qr-card` (`qr_card`) — Admin/Manager; generates a QR PNG (via the
-  `qrcode` package, encoding `str(member.id)`) as a base64 data URI, rendered in
-  `templates/members/qr_card.html` — a printable card (`window.print()` button) with
-  `@media print` CSS hiding the sidebar/topbar/buttons so only the card prints.
-  `qrcode`'s default PIL image backend needs Pillow, already present transitively via
-  reportlab — no explicit Pillow pin added to requirements.txt to avoid fighting that
-  existing resolution.
-- Linked from `members/view.html` next to the existing Edit/Archive buttons ("Print QR Card").
+### List/detail templates now span all roles
+- `attendance/list.html` — "Member" column renamed "Person", gained a role badge next to the
+  name and a **Role filter** dropdown (`?role=admin|manager|trainer|member`, passed through
+  pagination links alongside `search`/`date`). The name links to `members.view_member` only
+  when the row's user has a `member_profile`; other roles show as plain text (staff viewing the
+  list — Admin/Manager/Trainer — already covers oversight without needing a profile link for
+  every role).
+- `attendance/view.html` / `dashboard/member.html` etc. — same "Person + role badge" pattern.
+
+### Each dashboard now shows "Your Attendance ID"
+Admin, Manager, Trainer, and Member dashboards (`templates/dashboard/*.html`) each show a
+small badge in the page header: **"Your Attendance ID: {{ current_user.id }}"** (i.e. the
+User id, the same id `scan_submit` looks up) with a one-line hint ("Use this at the attendance
+kiosk" / "Give this to reception to check in/out" for the Member dashboard). This is what
+replaces the old printed QR card — anyone can read their own ID straight off their dashboard.
 
 ### Sidebar (templates/base.html)
-Admin/Manager/Trainer sections each gained a **"Scan Attendance"** nav-item (icon
-`fa-qrcode`) right after the existing "Attendance" link, `active` on the exact
-`attendance.scan_kiosk` endpoint (the existing "Attendance" link's `startswith('attendance.')`
-check was narrowed to exclude it, so the two links don't both highlight at once).
+Admin/Manager/Trainer sections each gained a new **"My Attendance"** nav-item (icon
+`fa-id-card`, → `attendance.my_attendance`) alongside the existing "Attendance" (full list) and
+"Scan Attendance" (kiosk, icon changed from `fa-qrcode` to `fa-keyboard`) links — the
+"Attendance" link's active-state check now excludes both `scan_kiosk` and `my_attendance` so
+exactly one nav item highlights at a time.
 
-### Hardware/setup notes (from the feasibility study this was built from)
-- **Chosen setup**: dedicated reception PC/tablet, not members' own phones — avoids the
-  self-signed-cert-per-device onboarding friction that BYOD phone scanning over LAN would need.
-- QR over 1D barcode for camera decoding specifically — QR's error correction handles a
-  webcam's angle/lighting/distance variance far better; 1D really wants a dedicated scanner
-  (which the USB-wedge path already provides either symbology for, camera-free).
-- Not done: no signed/opaque per-member token (plain ID chosen for simplicity — see Design
-  decision above); no bulk "print all QR cards" page (per-member only for now); no rate-limit
-  beyond the 8s debounce.
+### Not done / out of scope
+No self-service kiosk access for Members (still staff-operated, per the original hardware
+design); no per-person QR/barcode of any kind; no rate-limit beyond the existing 8s debounce.
+
+---
+
+## Flask-Migrate Adopted (Added 2026-08-03) — supersedes "no Alembic" going forward
+
+### Why
+Every schema change up to this point (documented throughout this file) was a manual
+`ALTER TABLE`/`ALTER TYPE` script run directly against the dev DB — there was no way to
+replay that history on a fresh database except reading back through this file and copying
+SQL by hand in order. Flask-Migrate (Alembic) was already sitting in the venv, unused; wiring
+it in is purely additive (two one-line changes, no other code touched) and gives a real,
+replayable `flask db upgrade` for any new environment going forward.
+
+### Setup performed
+- `requirements.txt` — added `Flask-Migrate==4.1.0`.
+- `app/extensions.py` — added `migrate = Migrate()` alongside `db`/`login_manager`/etc.
+- `app/__init__.py` — added `migrate.init_app(app, db)` right after `db.init_app(app)`.
+- `flask db init` — created `migrations/` (env.py already reads the DB URL from the running
+  Flask app's config at runtime — `current_app.extensions['migrate'].db.get_engine()` — no
+  `alembic.ini` edits needed).
+- `flask db migrate -m "baseline"` reported **"No changes in schema detected"** — confirming
+  the live DB already exactly matches every current model (expected, since it's been kept in
+  sync by hand all along).
+- Since there was nothing to autogenerate, created one **empty, hand-written baseline
+  revision** (`flask db revision -m "..."`, not `--autogenerate`) — `migrations/versions/
+  d4bb72d44783_baseline_existing_schema_no_op.py`, with `upgrade()`/`downgrade()` both `pass`.
+  This exists purely so `flask db stamp head` has a revision to record.
+- `flask db stamp head` — marks the DB as being at that baseline revision (creates/populates
+  the `alembic_version` table) **without running any SQL** — critical, since the tables
+  already exist; stamping (not upgrading) is what avoids Alembic trying to `CREATE TABLE`
+  things that are already there.
+
+### Workflow from here forward
+1. Change a model.
+2. `flask db migrate -m "description"` — autogenerates a script by diffing models against the
+   live DB. Review the generated file before applying.
+3. `flask db upgrade` — applies it, and records it in `alembic_version`.
+
+### The one thing autogenerate still can't do: enum value additions
+Confirmed empirically (`flask db migrate` produces nothing when a Python enum gains a new
+member that already exists as a Postgres `ENUM` type in the DB — Alembic's autogenerate
+compares column type identity, not the internal member list of an existing native enum).
+So the `ALTER TYPE ... ADD VALUE` pattern used repeatedly in this file's history (MANAGER
+role, PaymentStatus, MembershipStatus.PENDING, various NotificationAudience values, etc.)
+still has to be **hand-added** inside the migration file:
+```python
+def upgrade():
+    op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'MANAGER'")
+```
+Same manual SQL as before — the only difference is it now lives in a versioned, replayable
+migration file instead of a one-off script, and future `flask db upgrade` runs will include it.
+Postgres still has no `DROP VALUE` for enums either way (see the ExpenseCategory dead-label
+gotcha in the Payroll → Expenses section above) — that limitation is unrelated to Alembic.
+
+### Convention going forward
+Keep writing the CLAUDE.md prose changelog entries as before (the *why*/*context* behind a
+change) — migrations are the *replayable how*, not a replacement for the notes. Do not run
+ad hoc `db.session.execute(text("ALTER TABLE ..."))` scripts for schema changes anymore;
+always go through `flask db migrate`/`flask db upgrade` so the history stays complete and
+`migrations/` remains the single source of truth for reproducing the schema.
 
 ---
 
