@@ -1158,5 +1158,135 @@ always go through `flask db migrate`/`flask db upgrade` so the history stays com
 
 ---
 
+## Equipment Categories moved to Configuration (Added 2026-08-03, superseded same day — see next section)
+
+### Design decision
+`EquipmentCategory` was a fixed Python enum (Cardio/Strength Machine/Free Weights/Functional
+Training/Accessories/Other). Admin wanted the category list itself editable without a code
+change, so it moved into `AppConfiguration` as a comma-separated menu — the same "configurable
+CSV list" pattern `installment_options` already established — rather than a new relational table
+with its own CRUD lifecycle (categories are a flat vocabulary, not an entity needing audit trails
+like Package/Workout/Equipment itself).
+
+### Model changes
+- `app/models/configuration.py`: `AppConfiguration.equipment_categories` (String(500), CSV) +
+  `parse_category_list(raw)` (dedup case-insensitively, preserves given order, drops blanks — a
+  generic version of `parse_installment_options` for names instead of ints) + `equipment_categories_list` property.
+- `app/models/equipment.py`: `EquipmentCategory` enum removed entirely. `Equipment.category` is
+  now `db.Column(db.String(100))` — free text, must match an entry in
+  `equipment_categories_list` at form-submission time, not FK-enforced. Same non-retagging
+  limitation as `installment_options`: renaming/removing a category in Configuration does not
+  update equipment already saved with the old text.
+
+### Configuration sub-page (`/configuration/equipment-categories`)
+- Second sub-menu item under the "Configuration" sidebar parent (alongside "Bank Details") —
+  the collapsible-submenu sidebar pattern added earlier this session was built exactly for this
+  kind of growth. `EquipmentCategoryForm` (`app/blueprints/configuration/forms.py`) is a single
+  `StringField` textbox (comma-separated), same UX as the Installment Options field; requires
+  at least one non-blank entry.
+
+### Equipment blueprint changes
+- `EquipmentForm.__init__` (`app/blueprints/equipment/forms.py`) takes `current_category=None` and
+  builds `category` `SelectField` choices from `AppConfiguration.get().equipment_categories_list`,
+  appending `current_category` if it's stale (no longer in the configured list) so editing an
+  older item never breaks validation.
+- `create_equipment` blocks with a flash + redirect to the Equipment Categories config page when
+  the configured list is empty (mirrors the Package installment-options "add some in
+  Configuration first" pattern) — `edit_equipment` doesn't need the same guard since
+  `current_category` always supplies at least one valid choice.
+- `list_equipment`'s category filter and the `categories=` template var are now plain strings
+  from `equipment_categories_list`, not enum members.
+
+### DB migration (Flask-Migrate)
+`migrations/versions/2f5648d844c2_...py` — autogenerate correctly detected both the new
+`app_configuration.equipment_categories` column and the `equipments.category` enum→String type
+change, but (as expected — see the Flask-Migrate section above) couldn't emit the Postgres
+`USING` cast or the data backfill, so this migration is hand-edited: `ALTER TABLE equipments
+ALTER COLUMN category TYPE VARCHAR(100) USING category::text`, then a `CASE`-free loop of
+`UPDATE ... WHERE category = '<OLD_ENUM_MEMBER_NAME>'` translating each old enum member name to
+its display label (e.g. `STRENGTH_MACHINE` → `Strength Machine`) — remember the enum-stores-
+member-name-not-value gotcha from the Payroll→Expenses section — then `DROP TYPE
+equipmentcategory`. The same label list seeds `app_configuration.equipment_categories` as the
+default menu, so existing equipment reads identically post-migration.
+
+---
+
+## Equipment Categories became real records with Active/Inactive status (Added 2026-08-03, supersedes the CSV design above)
+
+### Design decision
+Same day as the CSV-menu version above, the requirement changed: categories needed to "act as a
+record" with an Active/Inactive status of their own — i.e. the Package.is_active convention
+(disabled-but-not-deleted, dropped from new-selection pickers, kept on anything already using it),
+not just a flat editable string list. `EquipmentCategory` became a real table.
+
+### Model changes
+- `app/models/equipment_category.py` (new) — `EquipmentCategory` model: `name` (unique),
+  `is_active` (default True), full audit fields (`created_by_id`/`updated_by_id`/timestamps),
+  `status_label`/`status_badge_class` — same shape as `Package`, minus `is_archived` (deactivating
+  is the only lifecycle state needed here; nothing about a category needs a separate "soft
+  delete").
+- `app/models/equipment.py` — `Equipment.category` is now `category_id` (FK to
+  `equipment_categories.id`) + a real `category` relationship, replacing the free-text column
+  from the CSV design. Renaming a category now genuinely propagates to every Equipment row using
+  it (a real improvement over the CSV design's non-retagging limitation).
+- `app/models/configuration.py` — `AppConfiguration.equipment_categories` /
+  `parse_category_list` / `equipment_categories_list` all removed; superseded entirely by the
+  new table.
+
+### Configuration routes — list/create/edit/toggle, not a single textbox
+`app/blueprints/configuration/routes.py` gained a proper small CRUD surface (mirrors
+Package's shape, minus archive/restore):
+- GET `/configuration/equipment-categories` (`list_equipment_categories`, was
+  `edit_equipment_categories`) — table of all categories + status badge + Deactivate/Activate
+  button + Edit link.
+- GET/POST `/configuration/equipment-categories/create` (`create_equipment_category`) — name
+  only; always starts Active.
+- GET/POST `/configuration/equipment-categories/<id>/edit` (`edit_equipment_category`) — rename.
+- POST `/configuration/equipment-categories/<id>/toggle-status`
+  (`toggle_equipment_category_status`) — flips `is_active`, same pattern as
+  `packages.toggle_status`.
+- `EquipmentCategoryForm` (`app/blueprints/configuration/forms.py`) is now a single `name`
+  `StringField` with a case-insensitive uniqueness check (`validate_name`, same pattern as
+  `PackageForm`/`EquipmentForm`), reused for both create and edit.
+- Templates moved into `templates/configuration/equipment_categories/` (`list.html`,
+  `create.html`, `edit.html`) — the old flat `configuration/equipment_categories.html` (single
+  textbox page) was deleted.
+- Sidebar (`base.html`): the "Equipment Categories" sub-menu link and its active-state check now
+  target `configuration.list_equipment_categories`, matched via `'equipment_categor' in
+  request.endpoint` so all four routes (list/create/edit/toggle) light up the same nav item.
+
+### Equipment blueprint changes
+- `EquipmentForm.__init__` (`app/blueprints/equipment/forms.py`) — `category` `SelectField` now
+  `coerce=int`; choices built from `EquipmentCategory.query.filter_by(is_active=True)`, not the
+  CSV list. `current_category` param is now the `EquipmentCategory` object itself (not a string) —
+  appended to choices only when `not current_category.is_active`, so editing an item whose
+  category was since deactivated still validates.
+- `create_equipment`'s empty-list guard now checks
+  `EquipmentCategory.query.filter_by(is_active=True).first()` and redirects to
+  `configuration.list_equipment_categories`.
+- `list_equipment`'s category filter is now `category_id` (int, `request.args.get('category', 0,
+  type=int)`) instead of a name string; the filter dropdown (`categories=` template var) lists
+  **all** categories (active + inactive, `EquipmentCategory.query.order_by(name)`) — unlike the
+  create/edit picker, the *filter* deliberately still shows inactive ones (suffixed "(inactive)"
+  in `equipment/list.html`) so staff can still find/filter existing equipment tagged with a
+  category that's since been turned off.
+- Templates: `equipment/list.html` and `equipment/view.html` read `e.category.name` /
+  `item.category.name` (relationship) instead of a plain string; `view.html` also shows an
+  "Inactive" badge next to the category name when `not item.category.is_active`.
+
+### DB migration (Flask-Migrate)
+`migrations/versions/e3e59dc53636_...py` — autogenerate correctly scaffolded the new
+`equipment_categories` table, the new `equipments.category_id` FK column, and the dropped
+`equipments.category` / `app_configuration.equipment_categories` columns, but (same as every prior
+data-carrying migration in this project) couldn't sequence the actual backfill, so it's
+hand-edited: create the table first, seed one active row per name from the union of {old CSV menu}
+∪ {any distinct `Equipment.category` text not already in that CSV — defensive, so no existing
+equipment could lose its category during the switch}, add `category_id` nullable, backfill by
+case-insensitive name match, *then* set it NOT NULL + add the FK constraint, then drop both old
+columns. Verified against the dev DB: all 6 seeded categories came through active, and the one
+existing equipment row repointed to the correct new `category_id`.
+
+---
+
 ## All SRS modules complete
 3.1–3.14 are all implemented. Remaining SRS work: none (optional polish/reports only).

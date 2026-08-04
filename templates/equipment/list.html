@@ -55,16 +55,19 @@
         <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
             <input type="hidden" name="status" value="{{ status_filter }}">
             <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
-                   placeholder="Search equipment... (comma-separated)" style="width:210px;">
+                   placeholder="Search equipment... (comma-separated)" style="width:260px;">
             <select name="category" class="form-select form-select-sm" style="width:170px;">
                 <option value="">All Categories</option>
                 {% for c in categories %}
-                <option value="{{ c.value }}" {% if category_filter == c.value %}selected{% endif %}>{{ c.label }}</option>
+                <option value="{{ c.id }}" {% if category_filter == c.id %}selected{% endif %}>{{ c.name }}{% if not c.is_active %} (inactive){% endif %}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="btn btn-sm btn-outline-secondary">
+            <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-filter"></i>
             </button>
+            <a href="{{ url_for('equipment.list_equipment') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+            </a>
         </form>
     </div>
 
@@ -101,7 +104,7 @@
                                 {{ e.name }}
                             </a>
                         </td>
-                        <td>{{ e.category.label }}</td>
+                        <td>{{ e.category.name }}</td>
                         <td>{{ e.quantity }}</td>
                         <td>
                             <span class="badge bg-{{ e.status_badge_class }}">{{ e.status_label }}</span>

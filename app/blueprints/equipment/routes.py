@@ -7,7 +7,8 @@ from sqlalchemy import func
 from app.blueprints.equipment import equipment_bp
 from app.blueprints.equipment.forms import EquipmentForm
 from app.extensions import db
-from app.models.equipment import Equipment, EquipmentCategory, EquipmentStatus
+from app.models.equipment import Equipment, EquipmentStatus
+from app.models.equipment_category import EquipmentCategory
 from app.utils.decorators import admin_required, admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
 from app.utils.uploads import read_image_bytes
@@ -32,10 +33,11 @@ def equipment_image(equipment_id):
 @equipment_bp.route('/')
 @admin_manager_or_trainer_required
 def list_equipment():
+    """Equipment list with status tabs, name search, category filter, stats, and pagination."""
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', 'all')
     search = request.args.get('q', '').strip()
-    category_filter = request.args.get('category', '')
+    category_filter = request.args.get('category', 0, type=int)
 
     query = Equipment.query.filter_by(is_archived=False)
 
@@ -48,10 +50,7 @@ def list_equipment():
     if terms:
         query = query.filter(multi_term_filter(terms, [Equipment.name]))
     if category_filter:
-        try:
-            query = query.filter_by(category=EquipmentCategory(category_filter))
-        except ValueError:
-            pass
+        query = query.filter_by(category_id=category_filter)
 
     equipment = query.order_by(Equipment.name.asc()).paginate(
         page=page, per_page=EQUIPMENT_PER_PAGE, error_out=False
@@ -68,7 +67,7 @@ def list_equipment():
         status_filter=status_filter,
         search=search,
         category_filter=category_filter,
-        categories=EquipmentCategory,
+        categories=EquipmentCategory.query.order_by(EquipmentCategory.name.asc()).all(),
         total_items=total_items,
         total_units=total_units,
         out_of_service=out_of_service,
@@ -79,11 +78,16 @@ def list_equipment():
 @equipment_bp.route('/create', methods=['GET', 'POST'])
 @admin_required
 def create_equipment():
+    """Creates a new equipment item; blocked if no active equipment category is configured yet."""
+    if not EquipmentCategory.query.filter_by(is_active=True).first():
+        flash('No equipment categories are configured yet. Add at least one first.', 'warning')
+        return redirect(url_for('configuration.list_equipment_categories'))
+
     form = EquipmentForm()
     if form.validate_on_submit():
         item = Equipment(
             name=form.name.data.strip(),
-            category=EquipmentCategory(form.category.data),
+            category_id=form.category.data,
             quantity=form.quantity.data,
             status=EquipmentStatus(form.status.data),
             notes=form.notes.data.strip() or None,
@@ -102,6 +106,7 @@ def create_equipment():
 @equipment_bp.route('/<int:equipment_id>')
 @admin_manager_or_trainer_required
 def view_equipment(equipment_id):
+    """Equipment detail page — image, details, notes, audit info."""
     item = Equipment.query.get_or_404(equipment_id)
     return render_template('equipment/view.html', item=item, title=item.name)
 
@@ -109,24 +114,25 @@ def view_equipment(equipment_id):
 @equipment_bp.route('/<int:equipment_id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit_equipment(equipment_id):
+    """Edits an equipment item's fields/image; blocked if archived."""
     item = Equipment.query.get_or_404(equipment_id)
 
     if item.is_archived:
         flash('Archived equipment cannot be edited.', 'warning')
         return redirect(url_for('equipment.view_equipment', equipment_id=equipment_id))
 
-    form = EquipmentForm()
+    form = EquipmentForm(current_category=item.category)
 
     if request.method == 'GET':
         form.name.data = item.name
-        form.category.data = item.category.value
+        form.category.data = item.category_id
         form.quantity.data = item.quantity
         form.status.data = item.status.value
         form.notes.data = item.notes
 
     if form.validate_on_submit():
         item.name = form.name.data.strip()
-        item.category = EquipmentCategory(form.category.data)
+        item.category_id = form.category.data
         item.quantity = form.quantity.data
         item.status = EquipmentStatus(form.status.data)
         item.notes = form.notes.data.strip() or None
@@ -149,6 +155,7 @@ def edit_equipment(equipment_id):
 @equipment_bp.route('/<int:equipment_id>/toggle-status', methods=['POST'])
 @admin_required
 def toggle_status(equipment_id):
+    """Flips an equipment item's status between Available and Out of Service."""
     item = Equipment.query.get_or_404(equipment_id)
 
     if item.is_archived:
@@ -171,6 +178,7 @@ def toggle_status(equipment_id):
 @equipment_bp.route('/<int:equipment_id>/archive', methods=['POST'])
 @admin_required
 def archive_equipment(equipment_id):
+    """Soft-deletes an equipment item."""
     item = Equipment.query.get_or_404(equipment_id)
     item.is_archived = True
     item.updated_by_id = current_user.id

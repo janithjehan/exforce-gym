@@ -4,26 +4,6 @@ from flask import url_for
 from app.extensions import db
 
 
-class EquipmentCategory(enum.Enum):
-    CARDIO = 'cardio'
-    STRENGTH_MACHINE = 'strength_machine'
-    FREE_WEIGHTS = 'free_weights'
-    FUNCTIONAL = 'functional'
-    ACCESSORIES = 'accessories'
-    OTHER = 'other'
-
-    @property
-    def label(self):
-        return {
-            'cardio': 'Cardio',
-            'strength_machine': 'Strength Machine',
-            'free_weights': 'Free Weights',
-            'functional': 'Functional Training',
-            'accessories': 'Accessories',
-            'other': 'Other',
-        }[self.value]
-
-
 class EquipmentStatus(enum.Enum):
     AVAILABLE = 'available'
     OUT_OF_SERVICE = 'out_of_service'
@@ -51,7 +31,8 @@ class Equipment(db.Model):
 
     # FR-EQP-01: Name, Category, Image, Quantity, Status, Notes
     name = db.Column(db.String(100), nullable=False)
-    category = db.Column(db.Enum(EquipmentCategory), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('equipment_categories.id'), nullable=False)
+    category = db.relationship('EquipmentCategory')
     # Image stored as binary data in the DB (survives redeploys on hosts with
     # no persistent filesystem, unlike app/static/uploads/)
     image_data = db.Column(db.LargeBinary, nullable=True)

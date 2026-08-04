@@ -1,6 +1,9 @@
-from datetime import datetime
+import io
+from datetime import datetime, date
 from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user, login_required
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.blueprints.users import users_bp
 from app.blueprints.users.forms import UserCreateForm, UserEditForm, AdminResetPasswordForm
@@ -14,6 +17,31 @@ from app.utils.uploads import read_image_bytes
 from app.utils.validators import clean_nic, parse_nic
 
 USERS_PER_PAGE = 15
+
+
+def _filtered_users_query(search, role_filter, status_filter):
+    """Builds the shared User query (search/role/status filters) used by both list_users and export_users."""
+    query = User.query
+
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.username, User.email, User.first_name, User.last_name,
+        ]))
+
+    if role_filter and role_filter in [r.value for r in UserRole]:
+        query = query.filter(User.role == UserRole(role_filter))
+
+    if status_filter == 'active':
+        query = query.filter(User.is_active == True, User.is_archived == False)
+    elif status_filter == 'inactive':
+        query = query.filter(User.is_active == False, User.is_archived == False)
+    elif status_filter == 'archived':
+        query = query.filter(User.is_archived == True)
+    else:
+        query = query.filter(User.is_archived == False)
+
+    return query
 
 
 @users_bp.route('/<int:user_id>/avatar-image')
@@ -34,34 +62,13 @@ def avatar_image(user_id):
 @users_bp.route('/')
 @admin_required
 def list_users():
+    """Admin user list with search, role/status filters, and pagination."""
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
     role_filter = request.args.get('role', '')
     status_filter = request.args.get('status', 'all')
 
-    query = User.query
-
-    # Search across name, username, email (comma-separated = match any)
-    terms = parse_search_terms(search)
-    if terms:
-        query = query.filter(multi_term_filter(terms, [
-            User.username, User.email, User.first_name, User.last_name,
-        ]))
-
-    # Role filter
-    if role_filter and role_filter in [r.value for r in UserRole]:
-        query = query.filter(User.role == UserRole(role_filter))
-
-    # Status filter
-    if status_filter == 'active':
-        query = query.filter(User.is_active == True, User.is_archived == False)
-    elif status_filter == 'inactive':
-        query = query.filter(User.is_active == False, User.is_archived == False)
-    elif status_filter == 'archived':
-        query = query.filter(User.is_archived == True)
-    else:
-        # 'all' — exclude archived by default
-        query = query.filter(User.is_archived == False)
+    query = _filtered_users_query(search, role_filter, status_filter)
 
     users = query.order_by(User.created_at.desc()).paginate(
         page=page, per_page=USERS_PER_PAGE, error_out=False
@@ -78,9 +85,67 @@ def list_users():
     )
 
 
+@users_bp.route('/export')
+@admin_required
+def export_users():
+    """Excel (.xlsx) export of the user list, honouring the current list filters."""
+    search = request.args.get('search', '').strip()
+    role_filter = request.args.get('role', '')
+    status_filter = request.args.get('status', 'all')
+
+    users = (
+        _filtered_users_query(search, role_filter, status_filter)
+        .order_by(User.created_at.desc())
+        .all()
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Users'
+
+    headers = [
+        'ID', 'Username', 'First Name', 'Last Name', 'Email', 'Phone', 'NIC No.',
+        'Role', 'Status', 'Last Login', 'Created At',
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for u in users:
+        ws.append([
+            u.id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            u.email,
+            u.phone or '',
+            u.nic_no or '',
+            u.role.label,
+            u.status_label,
+            u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else '',
+            u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '',
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    filename = f'users_report_{date.today().strftime("%Y%m%d")}.xlsx'
+    return Response(
+        out.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
 @users_bp.route('/create', methods=['GET', 'POST'])
 @admin_required
 def create_user():
+    """Creates a User and, for MEMBER/TRAINER roles, an accompanying Member/Trainer profile in one step."""
     form = UserCreateForm()
     if form.validate_on_submit():
         user = User(
@@ -132,6 +197,7 @@ def create_user():
 @users_bp.route('/<int:user_id>')
 @admin_required
 def view_user(user_id):
+    """User detail page, including their 20 most recent login activity log entries."""
     user = User.query.get_or_404(user_id)
     recent_logs = (
         LoginActivityLog.query
@@ -146,6 +212,8 @@ def view_user(user_id):
 @users_bp.route('/<int:user_id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit_user(user_id):
+    """Edits a user's account fields; guards against demoting the last admin and backfills a missing
+    Member/Trainer profile if the role is changed to one of those."""
     user = User.query.get_or_404(user_id)
     if user.is_archived:
         flash('Archived users cannot be edited.', 'warning')
@@ -217,6 +285,7 @@ def edit_user(user_id):
 @users_bp.route('/<int:user_id>/activate', methods=['POST'])
 @admin_required
 def activate_user(user_id):
+    """Reactivates a deactivated (non-archived) user's account."""
     user = User.query.get_or_404(user_id)
     if user.is_archived:
         flash('Cannot activate an archived user.', 'warning')
@@ -239,6 +308,7 @@ def activate_user(user_id):
 @users_bp.route('/<int:user_id>/deactivate', methods=['POST'])
 @admin_required
 def deactivate_user(user_id):
+    """Deactivates a user's account; blocks self-deactivation and removing the last active admin."""
     user = User.query.get_or_404(user_id)
 
     # Guard: cannot deactivate yourself
@@ -272,6 +342,7 @@ def deactivate_user(user_id):
 @users_bp.route('/<int:user_id>/archive', methods=['POST'])
 @admin_required
 def archive_user(user_id):
+    """Soft-deletes a user (archive + deactivate); blocks self-archiving and removing the last admin."""
     user = User.query.get_or_404(user_id)
 
     if user.id == current_user.id:
@@ -298,6 +369,7 @@ def archive_user(user_id):
 @users_bp.route('/<int:user_id>/restore', methods=['POST'])
 @admin_required
 def restore_user(user_id):
+    """Un-archives a user and re-activates their account."""
     user = User.query.get_or_404(user_id)
 
     user.is_archived = False
@@ -312,6 +384,7 @@ def restore_user(user_id):
 @users_bp.route('/<int:user_id>/reset-password', methods=['GET', 'POST'])
 @admin_required
 def reset_password(user_id):
+    """Admin-driven password reset for a user; the change is written to the login activity log."""
     user = User.query.get_or_404(user_id)
     if user.is_archived:
         flash('Cannot reset password for an archived user.', 'warning')
