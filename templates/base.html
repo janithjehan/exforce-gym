@@ -204,11 +204,33 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="{{ url_for('configuration.edit_configuration') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('configuration.') %}active{% endif %}">
+            <a href="#configurationSubmenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if request.endpoint and request.endpoint.startswith('configuration.') else 'false' }}"
+               aria-controls="configurationSubmenu"
+               class="nav-link has-submenu {% if request.endpoint and request.endpoint.startswith('configuration.') %}active{% endif %}">
                 <i class="fa-solid fa-gear"></i>
                 Configuration
+                <i class="fa-solid fa-chevron-down submenu-caret"></i>
             </a>
+            <div class="collapse sidebar-submenu {% if request.endpoint and request.endpoint.startswith('configuration.') %}show{% endif %}"
+                 id="configurationSubmenu">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a href="{{ url_for('configuration.edit_configuration') }}"
+                           class="nav-link {% if request.endpoint == 'configuration.edit_configuration' %}active{% endif %}">
+                            <i class="fa-solid fa-building-columns"></i>
+                            Bank Details
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('configuration.list_equipment_categories') }}"
+                           class="nav-link {% if request.endpoint and request.endpoint.startswith('configuration.') and 'equipment_categor' in request.endpoint %}active{% endif %}">
+                            <i class="fa-solid fa-tags"></i>
+                            Equipment Categories
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </li>
 
         <!-- ── MANAGER SECTION ── -->

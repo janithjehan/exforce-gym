@@ -149,6 +149,31 @@ a:hover { text-decoration: none; }
     border-radius: 20px;
 }
 
+/* Nav items with a collapsible submenu (e.g. Configuration) */
+.sidebar-nav .nav-link.has-submenu {
+    cursor: pointer;
+}
+
+.sidebar-nav .nav-link .submenu-caret {
+    margin-left: auto;
+    font-size: 11px;
+    width: auto;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-nav .nav-link.has-submenu[aria-expanded="true"] .submenu-caret {
+    transform: rotate(180deg);
+}
+
+.sidebar-submenu .nav-link {
+    padding-left: 52px;
+    font-size: 13px;
+}
+
+.sidebar-submenu .nav-link i:not(.submenu-caret) {
+    font-size: 12px;
+}
+
 /* ============================================================
    MAIN LAYOUT
    ============================================================ */

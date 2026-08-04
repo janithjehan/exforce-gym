@@ -14,7 +14,7 @@
         <h2>{{ item.name }}</h2>
         <p>
             <span class="badge bg-{{ item.status_badge_class }} me-2">{{ item.status_label }}</span>
-            {{ item.category.label }} &middot; {{ item.quantity }} unit{{ 's' if item.quantity != 1 }}
+            {{ item.category.name }} &middot; {{ item.quantity }} unit{{ 's' if item.quantity != 1 }}
         </p>
     </div>
     {% if current_user.is_admin and not item.is_archived %}
@@ -59,7 +59,10 @@
                     <dd class="col-sm-8">{{ item.name }}</dd>
 
                     <dt class="col-sm-4">Category</dt>
-                    <dd class="col-sm-8">{{ item.category.label }}</dd>
+                    <dd class="col-sm-8">
+                        {{ item.category.name }}
+                        {% if not item.category.is_active %}<span class="badge bg-warning text-dark ms-1">Inactive</span>{% endif %}
+                    </dd>
 
                     <dt class="col-sm-4">Quantity</dt>
                     <dd class="col-sm-8">{{ item.quantity }}</dd>
