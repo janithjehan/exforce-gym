@@ -47,11 +47,13 @@
         <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
             <input type="hidden" name="status" value="{{ status_filter }}">
             <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
-                   placeholder="Search workouts... (comma-separated)" style="width:200px;">
-            <select name="type" class="form-select form-select-sm" style="width:130px;">
-                <option value="">All Types</option>
-                {% for t in workout_types %}
-                <option value="{{ t.value }}" {% if type_filter == t.value %}selected{% endif %}>{{ t.label }}</option>
+                   placeholder="Search workouts... (comma-separated)" style="width:250px;">
+            <select name="category" class="form-select form-select-sm" style="width:150px;">
+                <option value="0">All Categories</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}" {% if category_filter == c.id %}selected{% endif %}>
+                    {{ c.name }}{% if not c.is_active %} (inactive){% endif %}
+                </option>
                 {% endfor %}
             </select>
             <select name="muscle" class="form-select form-select-sm" style="width:140px;">
@@ -66,9 +68,12 @@
                 <option value="{{ d.value }}" {% if difficulty_filter == d.value %}selected{% endif %}>{{ d.label }}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="btn btn-sm btn-outline-secondary">
+             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-filter"></i>
             </button>
+            <a href="{{ url_for('workouts.list_workouts') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+            </a>
         </form>
     </div>
 
@@ -79,7 +84,7 @@
                 <thead>
                     <tr>
                         <th>Workout</th>
-                        <th>Type</th>
+                        <th>Category</th>
                         <th>Muscle Group</th>
                         <th>Difficulty</th>
                         <th>Equipment</th>
@@ -95,7 +100,7 @@
                                 {{ w.name }}
                             </a>
                         </td>
-                        <td>{{ w.workout_type.label }}</td>
+                        <td>{{ w.category.name if w.category else '—' }}</td>
                         <td>{{ w.muscle_group.label }}</td>
                         <td>
                             <span class="badge bg-{{ w.difficulty.badge_class }} bg-opacity-15 text-{{ w.difficulty.badge_class }}">
@@ -122,21 +127,21 @@
             <nav>
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {% if not workouts.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('workouts.list_workouts', page=workouts.prev_num, status=status_filter, q=search, type=type_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">
+                        <a class="page-link" href="{{ url_for('workouts.list_workouts', page=workouts.prev_num, status=status_filter, q=search, category=category_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">
                             <i class="fa-solid fa-chevron-left"></i>
                         </a>
                     </li>
                     {% for p in workouts.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                         {% if p %}
                         <li class="page-item {% if p == workouts.page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('workouts.list_workouts', page=p, status=status_filter, q=search, type=type_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('workouts.list_workouts', page=p, status=status_filter, q=search, category=category_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">{{ p }}</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
                     {% endfor %}
                     <li class="page-item {% if not workouts.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('workouts.list_workouts', page=workouts.next_num, status=status_filter, q=search, type=type_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">
+                        <a class="page-link" href="{{ url_for('workouts.list_workouts', page=workouts.next_num, status=status_filter, q=search, category=category_filter, muscle=muscle_filter, difficulty=difficulty_filter) }}">
                             <i class="fa-solid fa-chevron-right"></i>
                         </a>
                     </li>
@@ -149,7 +154,7 @@
         <div class="text-center py-5 text-muted">
             <i class="fa-solid fa-dumbbell fa-2x mb-3 d-block"></i>
             No workouts found.
-            {% if status_filter != 'all' or search or type_filter or muscle_filter or difficulty_filter %}
+            {% if status_filter != 'all' or search or category_filter or muscle_filter or difficulty_filter %}
             <a href="{{ url_for('workouts.list_workouts', status='all') }}">Clear filters</a> or
             {% endif %}
             <a href="{{ url_for('workouts.create_workout') }}">add one</a>.

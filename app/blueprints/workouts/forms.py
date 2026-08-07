@@ -2,14 +2,22 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, TextAreaField, SubmitField
 from wtforms.validators import DataRequired, Length, Optional, ValidationError
 
-from app.models.workout import Workout, WorkoutType, MuscleGroup, DifficultyLevel
+from app.models.workout import Workout, MuscleGroup, DifficultyLevel
+from app.models.workout_category import WorkoutCategory
+
+
+def _coerce_category(value):
+    if value in (None, ''):
+        return 0
+    return int(value)
 
 
 class WorkoutForm(FlaskForm):
     name = StringField('Workout Name', validators=[DataRequired(), Length(max=100)])
-    workout_type = SelectField(
-        'Type',
-        choices=[(t.value, t.label) for t in WorkoutType],
+    category = SelectField(
+        'Category',
+        choices=[],
+        coerce=_coerce_category,
         validators=[DataRequired()],
     )
     muscle_group = SelectField(
@@ -33,6 +41,13 @@ class WorkoutForm(FlaskForm):
         render_kw={'rows': 5, 'placeholder': 'Step-by-step execution notes, form cues, sets/reps guidance...'},
     )
     submit = SubmitField('Save Workout')
+
+    def __init__(self, *args, current_category=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        categories = WorkoutCategory.query.filter_by(is_active=True).order_by(WorkoutCategory.name).all()
+        if current_category and not current_category.is_active:
+            categories = categories + [current_category]
+        self.category.choices = [('', 'Select a category...')] + [(c.id, c.name) for c in categories]
 
     def validate_name(self, field):
         from flask import request

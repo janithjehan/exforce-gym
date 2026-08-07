@@ -5,7 +5,8 @@ from flask_login import current_user
 from app.blueprints.workouts import workouts_bp
 from app.blueprints.workouts.forms import WorkoutForm
 from app.extensions import db
-from app.models.workout import Workout, WorkoutType, MuscleGroup, DifficultyLevel
+from app.models.workout import Workout, MuscleGroup, DifficultyLevel
+from app.models.workout_category import WorkoutCategory
 from app.utils.decorators import admin_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
 
@@ -18,7 +19,7 @@ def list_workouts():
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', 'active')
     search = request.args.get('q', '').strip()
-    type_filter = request.args.get('type', '')
+    category_filter = request.args.get('category', 0, type=int)
     muscle_filter = request.args.get('muscle', '')
     difficulty_filter = request.args.get('difficulty', '')
 
@@ -34,11 +35,8 @@ def list_workouts():
     terms = parse_search_terms(search)
     if terms:
         query = query.filter(multi_term_filter(terms, [Workout.name]))
-    if type_filter:
-        try:
-            query = query.filter_by(workout_type=WorkoutType(type_filter))
-        except ValueError:
-            pass
+    if category_filter:
+        query = query.filter_by(category_id=category_filter)
     if muscle_filter:
         try:
             query = query.filter_by(muscle_group=MuscleGroup(muscle_filter))
@@ -62,10 +60,10 @@ def list_workouts():
         workouts=workouts,
         status_filter=status_filter,
         search=search,
-        type_filter=type_filter,
+        category_filter=category_filter,
         muscle_filter=muscle_filter,
         difficulty_filter=difficulty_filter,
-        workout_types=WorkoutType,
+        categories=WorkoutCategory.query.order_by(WorkoutCategory.name.asc()).all(),
         muscle_groups=MuscleGroup,
         difficulty_levels=DifficultyLevel,
         total_active=total_active,
@@ -77,12 +75,16 @@ def list_workouts():
 @workouts_bp.route('/create', methods=['GET', 'POST'])
 @admin_or_trainer_required
 def create_workout():
+    if not WorkoutCategory.query.filter_by(is_active=True).first():
+        flash('No workout categories are configured yet. Add at least one first.', 'warning')
+        return redirect(url_for('configuration.list_workout_categories'))
+
     form = WorkoutForm()
     form.load_equipment_choices()
     if form.validate_on_submit():
         workout = Workout(
             name=form.name.data.strip(),
-            workout_type=WorkoutType(form.workout_type.data),
+            category_id=form.category.data,
             muscle_group=MuscleGroup(form.muscle_group.data),
             difficulty=DifficultyLevel(form.difficulty.data),
             equipment_needed=form.equipment_needed.data or None,
@@ -114,12 +116,12 @@ def edit_workout(workout_id):
         flash('Archived workouts cannot be edited.', 'warning')
         return redirect(url_for('workouts.view_workout', workout_id=workout_id))
 
-    form = WorkoutForm()
+    form = WorkoutForm(current_category=workout.category)
     form.load_equipment_choices(current=workout.equipment_needed)
 
     if request.method == 'GET':
         form.name.data = workout.name
-        form.workout_type.data = workout.workout_type.value
+        form.category.data = workout.category_id
         form.muscle_group.data = workout.muscle_group.value
         form.difficulty.data = workout.difficulty.value
         form.equipment_needed.data = workout.equipment_needed or ''
@@ -127,7 +129,7 @@ def edit_workout(workout_id):
 
     if form.validate_on_submit():
         workout.name = form.name.data.strip()
-        workout.workout_type = WorkoutType(form.workout_type.data)
+        workout.category_id = form.category.data
         workout.muscle_group = MuscleGroup(form.muscle_group.data)
         workout.difficulty = DifficultyLevel(form.difficulty.data)
         workout.equipment_needed = form.equipment_needed.data or None

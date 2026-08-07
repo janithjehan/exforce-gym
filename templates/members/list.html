@@ -13,9 +13,15 @@
         <h2>Members</h2>
         <p>Manage gym member profiles and view their status.</p>
     </div>
-    <a href="{{ url_for('members.create_member') }}" class="btn btn-primary">
-        <i class="fa-solid fa-user-plus me-2"></i>Add Member
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('members.export_members', search=search, status=status_filter) }}"
+           class="btn btn-outline-primary">
+            <i class="fa-solid fa-file-excel me-2"></i>Export Excel
+        </a>
+        <a href="{{ url_for('members.create_member') }}" class="btn btn-primary">
+            <i class="fa-solid fa-user-plus me-2"></i>Add Member
+        </a>
+    </div>
 </div>
 
 <!-- Summary Cards -->

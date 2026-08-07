@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
 
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
+{% endblock %}
+
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -31,9 +35,9 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-sm-4">
-                            {{ form.workout_type.label(class='form-label') }}
-                            {{ form.workout_type(class='form-select' + (' is-invalid' if form.workout_type.errors else '')) }}
-                            {% for e in form.workout_type.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            {{ form.category.label(class='form-label') }}
+                            {{ form.category(class='form-select' + (' is-invalid' if form.category.errors else '')) }}
+                            {% for e in form.category.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
                         <div class="col-sm-4">
                             {{ form.muscle_group.label(class='form-label') }}
@@ -69,4 +73,12 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="{{ url_for('static', filename='js/searchable-select.js') }}"></script>
+<script>
+    initSearchableSelect('#category', { placeholder: 'Search categories...' });
+</script>
 {% endblock %}

@@ -5,16 +5,16 @@
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
         <li class="breadcrumb-item"><a href="{{ url_for('configuration.edit_configuration') }}">Configuration</a></li>
-        <li class="breadcrumb-item active">Equipment Categories</li>
+        <li class="breadcrumb-item active">Workout Categories</li>
     </ol>
 </nav>
 
 <div class="page-header">
     <div class="page-header-title">
-        <h2>Equipment Categories</h2>
-        <p>Active categories are offered in the Equipment module's Category field.</p>
+        <h2>Workout Categories</h2>
+        <p>Active categories are offered in the Workout module's Category field.</p>
     </div>
-    <a href="{{ url_for('configuration.create_equipment_category') }}" class="btn btn-primary">
+    <a href="{{ url_for('configuration.create_workout_category') }}" class="btn btn-primary">
         <i class="fa-solid fa-plus me-2"></i>New Category
     </a>
 </div>
@@ -39,12 +39,12 @@
                                 <td class="fw-semibold">{{ c.name }}</td>
                                 <td><span class="badge bg-{{ c.status_badge_class }}">{{ c.status_label }}</span></td>
                                 <td class="text-end">
-                                    <a href="{{ url_for('configuration.edit_equipment_category', category_id=c.id) }}"
+                                    <a href="{{ url_for('configuration.edit_workout_category', category_id=c.id) }}"
                                        class="btn btn-sm btn-outline-secondary">
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
                                     <form method="POST"
-                                          action="{{ url_for('configuration.toggle_equipment_category_status', category_id=c.id) }}"
+                                          action="{{ url_for('configuration.toggle_workout_category_status', category_id=c.id) }}"
                                           class="d-inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         {% if c.is_active %}
@@ -54,7 +54,7 @@
                                         {% endif %}
                                     </form>
                                     <form method="POST"
-                                          action="{{ url_for('configuration.delete_equipment_category', category_id=c.id) }}"
+                                          action="{{ url_for('configuration.delete_workout_category', category_id=c.id) }}"
                                           class="d-inline"
                                           onsubmit="return confirm('Delete category \'{{ c.name }}\'? This cannot be undone.')">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -71,7 +71,7 @@
                 {% else %}
                 <div class="text-center py-5 text-muted">
                     <i class="fa-solid fa-tags fa-2x mb-3 d-block"></i>
-                    No categories yet. <a href="{{ url_for('configuration.create_equipment_category') }}">Add one</a>.
+                    No categories yet. <a href="{{ url_for('configuration.create_workout_category') }}">Add one</a>.
                 </div>
                 {% endif %}
             </div>
