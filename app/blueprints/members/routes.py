@@ -1,6 +1,9 @@
+import io
 from datetime import datetime, date
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, Response
 from flask_login import login_required, current_user
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.blueprints.members import members_bp
 from app.blueprints.members.forms import MemberCreateForm, MemberEditForm, MemberSelfEditForm
@@ -14,6 +17,79 @@ from app.utils.uploads import read_image_bytes
 from app.utils.validators import clean_nic, parse_nic
 
 MEMBERS_PER_PAGE = 15
+
+
+def _filtered_members_query(search, status_filter):
+    """Builds the shared Member query (search/status filters) used by both list_members and export_members."""
+    query = (
+        Member.query
+        .join(User, Member.user_id == User.id)
+    )
+
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.first_name, User.last_name, User.email, Member.contact_no,
+        ]))
+
+    if status_filter == 'archived':
+        query = query.filter(Member.is_archived == True)
+    else:
+        query = query.filter(Member.is_archived == False)
+
+    return query
+
+
+@members_bp.route('/export')
+@admin_or_manager_required
+def export_members():
+    """Excel (.xlsx) export of the member list, honouring the current list filters."""
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', 'all')
+
+    members = (
+        _filtered_members_query(search, status_filter)
+        .order_by(Member.join_date.desc())
+        .all()
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Members'
+
+    headers = [
+        'ID', 'Username', 'First Name', 'Last Name', 'Email', 'Phone', 'NIC No.', 'Status',
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for u in members:
+        ws.append([
+            u.id,
+            u.username,
+            u.user.first_name,
+            u.user.last_name,
+            u.user.email,
+            u.user.phone or '',
+            u.user.nic_no or '',
+            u.status_label,
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    filename = f'members_report_{date.today().strftime("%Y%m%d")}.xlsx'
+    return Response(
+        out.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
 
 
 @members_bp.route('/')

@@ -7,7 +7,8 @@ from app.models.attendance import Attendance
 from app.models.trainer import Trainer
 from app.models.trainer_request import TrainerRequest, TrainerRequestStatus
 from app.models.notification import (Notification, NotificationLog, NotificationAudience,)
-from app.models.workout import Workout, WorkoutType, MuscleGroup, DifficultyLevel
+from app.models.equipment_category import EquipmentCategory
+from app.models.workout_category import WorkoutCategory
 from app.models.schedule import Schedule, ScheduleItem, ScheduleStatus, ScheduleEditLog
 from app.models.equipment import Equipment, EquipmentStatus
 from app.models.equipment_category import EquipmentCategory
@@ -29,7 +30,8 @@ __all__ = [
     'Trainer',
     'TrainerRequest', 'TrainerRequestStatus',
     'Notification', 'NotificationLog', 'NotificationAudience',
-    'Workout', 'WorkoutType', 'MuscleGroup', 'DifficultyLevel',
+    'Workout', 'MuscleGroup', 'DifficultyLevel',
+    'WorkoutCategory',
     'Schedule', 'ScheduleItem', 'ScheduleStatus', 'ScheduleEditLog',
     'Equipment', 'EquipmentStatus',
     'EquipmentCategory',

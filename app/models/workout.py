@@ -3,24 +3,6 @@ from datetime import datetime
 from app.extensions import db
 
 
-class WorkoutType(enum.Enum):
-    STRENGTH = 'strength'
-    CARDIO = 'cardio'
-    FLEXIBILITY = 'flexibility'
-    BALANCE = 'balance'
-    ENDURANCE = 'endurance'
-
-    @property
-    def label(self):
-        return {
-            'strength': 'Strength',
-            'cardio': 'Cardio',
-            'flexibility': 'Flexibility',
-            'balance': 'Balance',
-            'endurance': 'Endurance',
-        }[self.value]
-
-
 class MuscleGroup(enum.Enum):
     CHEST = 'chest'
     BACK = 'back'
@@ -66,15 +48,16 @@ class DifficultyLevel(enum.Enum):
 
 
 class Workout(db.Model):
-    """Exercise library entry used when building member schedules (SRS 3.8)."""
+    """Exercise library entry used when building member schedules."""
     __tablename__ = 'workouts'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    workout_type = db.Column(db.Enum(WorkoutType), nullable=False)
     muscle_group = db.Column(db.Enum(MuscleGroup), nullable=False)
 
-    # FR-WRK-01: required metadata
+    category_id = db.Column(db.Integer, db.ForeignKey('workout_categories.id'), nullable=True)
+    category = db.relationship('WorkoutCategory', backref=db.backref('workout_items', lazy='dynamic'))
+
     difficulty = db.Column(
         db.Enum(DifficultyLevel), nullable=False,
         default=DifficultyLevel.BEGINNER,

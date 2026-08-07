@@ -14,7 +14,7 @@
         <h2>{{ workout.name }}</h2>
         <p>
             <span class="badge bg-{{ workout.status_badge_class }} me-2">{{ workout.status_label }}</span>
-            {{ workout.workout_type.label }} &middot; {{ workout.muscle_group.label }} &middot;
+            {{ workout.category.name if workout.category else 'Uncategorized' }} &middot; {{ workout.muscle_group.label }} &middot;
             <span class="badge bg-{{ workout.difficulty.badge_class }} bg-opacity-15 text-{{ workout.difficulty.badge_class }}">
                 {{ workout.difficulty.label }}
             </span>
@@ -57,8 +57,8 @@
                     <dt class="col-sm-4">Name</dt>
                     <dd class="col-sm-8">{{ workout.name }}</dd>
 
-                    <dt class="col-sm-4">Type</dt>
-                    <dd class="col-sm-8">{{ workout.workout_type.label }}</dd>
+                    <dt class="col-sm-4">Category</dt>
+                    <dd class="col-sm-8">{{ workout.category.name if workout.category else 'Uncategorized' }}</dd>
 
                     <dt class="col-sm-4">Muscle Group</dt>
                     <dd class="col-sm-8">{{ workout.muscle_group.label }}</dd>
