@@ -131,6 +131,11 @@ class MemberEditForm(FlaskForm):
     )
     notes = TextAreaField('Admin Notes', validators=[Optional(), Length(max=1000)],
                           render_kw={'rows': 3})
+    photo = FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
+    )
+    remove_photo = BooleanField('Remove current photo')
 
     submit = SubmitField('Save Changes')
 

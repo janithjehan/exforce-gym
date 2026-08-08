@@ -17,7 +17,7 @@
     </div>
 </div>
 
-<form method="POST" action="{{ url_for('members.edit_member', member_id=member.id) }}" novalidate>
+<form method="POST" action="{{ url_for('members.edit_member', member_id=member.id) }}" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
 
     <div class="row g-4">
@@ -28,6 +28,23 @@
                     <i class="fa-solid fa-circle-user text-orange me-2"></i>Personal Info
                 </div>
                 <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label d-block">Profile Photo</label>
+                        <div class="d-flex align-items-center gap-3 mb-2">
+                            {{ avatar(member.user, 'user-avatar user-avatar-lg') }}
+                            <div class="flex-grow-1">
+                                {{ form.photo(class='form-control' + (' is-invalid' if form.photo.errors else ''), accept='image/*') }}
+                                {% for e in form.photo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                                <div class="form-text">JPG, PNG, GIF or WebP, up to 3 MB. Uploading replaces the current photo.</div>
+                            </div>
+                        </div>
+                        {% if member.user.avatar_url %}
+                        <div class="form-check">
+                            {{ form.remove_photo(class='form-check-input', id='removePhoto') }}
+                            <label class="form-check-label" for="removePhoto">Remove current photo</label>
+                        </div>
+                        {% endif %}
+                    </div>
                     <div class="row g-3">
                         <div class="col-6">
                             {{ form.first_name.label(class='form-label') }}

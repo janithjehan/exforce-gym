@@ -114,13 +114,6 @@
         <li><div class="sidebar-section-label">Operations</div></li>
 
         <li class="nav-item">
-            <a href="{{ url_for('packages.list_packages') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('packages.') %}active{% endif %}">
-                <i class="fa-solid fa-box-open"></i>
-                Packages
-            </a>
-        </li>
-        <li class="nav-item">
             <a href="{{ url_for('attendance.list_attendance') }}"
                class="nav-link {% if request.endpoint and request.endpoint.startswith('attendance.') and request.endpoint not in ('attendance.scan_kiosk', 'attendance.my_attendance') %}active{% endif %}">
                 <i class="fa-solid fa-person-walking"></i>
@@ -141,6 +134,9 @@
                 My Attendance
             </a>
         </li>
+
+        <li><div class="sidebar-section-label">Progress</div></li>
+
         <li class="nav-item">
             <a href="{{ url_for('schedules.list_schedules') }}"
                class="nav-link {% if request.endpoint and request.endpoint.startswith('schedules.') %}active{% endif %}">
@@ -164,6 +160,14 @@
         </li>
 
         <li><div class="sidebar-section-label">Gym Info</div></li>
+
+        <li class="nav-item">
+            <a href="{{ url_for('packages.list_packages') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('packages.') %}active{% endif %}">
+                <i class="fa-solid fa-box-open"></i>
+                Packages
+            </a>
+        </li>
 
         <li class="nav-item">
             <a href="{{ url_for('equipment.list_equipment') }}"

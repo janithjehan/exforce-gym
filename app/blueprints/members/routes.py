@@ -251,6 +251,12 @@ def edit_member(member_id):
         member.updated_by_id = current_user.id
         member.updated_at = datetime.utcnow()
 
+        if form.photo.data:
+            member.user.avatar_data, member.user.avatar_mimetype = read_image_bytes(form.photo.data)
+        elif form.remove_photo.data:
+            member.user.avatar_data = None
+            member.user.avatar_mimetype = None
+
         db.session.commit()
         flash(f'Profile for "{member.full_name}" updated successfully.', 'success')
         return redirect(url_for('members.view_member', member_id=member_id))
