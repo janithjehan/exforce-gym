@@ -1,11 +1,16 @@
-from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, abort
+import io
+from datetime import datetime, date
+from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user, login_required
+
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.blueprints.trainers import trainers_bp
 from app.blueprints.trainers.forms import TrainerCreateForm, TrainerEditForm, TrainerSelfEditForm
 from app.extensions import db
 from app.models.trainer import Trainer
+from app.models.trainer_category import TrainerCategory
 from app.models.member import Gender
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_required, admin_or_manager_required
@@ -16,12 +21,36 @@ from app.utils.validators import clean_nic, parse_nic
 TRAINERS_PER_PAGE = 15
 
 
+def _filtered_trainers_query(search, status_filter, category_filter):
+    """Builds the shared Trainer query (search/status filters) used by both list_trainers and export_trainers."""
+    query = (
+        Trainer.query
+        .join(User, Trainer.user_id == User.id)
+    )
+
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [
+            User.first_name, User.last_name, User.email,
+        ]))
+
+    if category_filter:
+        query = query.filter(Trainer.category_id == category_filter)
+
+    if status_filter == 'archived':
+        query = query.filter(Trainer.is_archived == True)
+    else:
+        query = query.filter(Trainer.is_archived == False)
+
+    return query
+
 @trainers_bp.route('/')
 @admin_or_manager_required
 def list_trainers():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all')
+    category_filter = request.args.get('category', 0, type=int)
 
     query = (
         Trainer.query
@@ -31,8 +60,11 @@ def list_trainers():
     terms = parse_search_terms(search)
     if terms:
         query = query.filter(multi_term_filter(terms, [
-            User.first_name, User.last_name, User.email, Trainer.category,
+            User.first_name, User.last_name, User.email
         ]))
+
+    if category_filter:
+        query = query.filter(Trainer.category_id == category_filter)
 
     if status_filter == 'archived':
         query = query.filter(Trainer.is_archived == True)  # noqa: E712
@@ -52,6 +84,8 @@ def list_trainers():
         'trainers/list.html',
         trainers=trainers,
         search=search,
+        category_filter=category_filter,
+        categories=TrainerCategory.query.order_by(TrainerCategory.name.asc()).all(),
         status_filter=status_filter,
         stats=stats,
         title='Trainers',
