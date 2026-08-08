@@ -1,9 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SubmitField, BooleanField, SelectMultipleField
+from wtforms import StringField, TextAreaField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
 from wtforms.fields import DecimalField, IntegerField
 from app.models.package import Package
-from app.models.configuration import AppConfiguration
 
 
 class PackageForm(FlaskForm):
@@ -23,19 +22,28 @@ class PackageForm(FlaskForm):
         render_kw={'rows': 3, 'placeholder': 'List what this package includes...'},
     )
     allow_installments = BooleanField('Allow members to pay in installments')
-    installment_options = SelectMultipleField(
-        'Installment Counts Offered', coerce=int, validators=[],
+    installment_options = StringField(
+        'Installment Counts Offered',
+        validators=[Length(max=100)],
+        render_kw={'placeholder': 'e.g. 2,3,4,6'},
     )
     submit = SubmitField('Save Package')
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        global_options = AppConfiguration.get().installment_options_list
-        self.installment_options.choices = [(n, f'{n} installments') for n in global_options]
-
     def validate_installment_options(self, field):
-        if self.allow_installments.data and not field.data:
-            raise ValidationError('Select at least one installment count, or turn off "Allow installments".')
+        """Comma-separated whole numbers, 2 or more; required when installments are allowed."""
+        raw = (field.data or '').strip()
+        if self.allow_installments.data and not raw:
+            raise ValidationError('Enter at least one installment count, or turn off "Allow installments".')
+        for token in raw.split(','):
+            token = token.strip()
+            if not token:
+                continue
+            try:
+                n = int(token)
+            except ValueError:
+                raise ValidationError(f'"{token}" is not a whole number.')
+            if n < 2:
+                raise ValidationError('Installment counts must be 2 or more (1 installment is just paying in full).')
 
     def validate_name(self, field):
         """Reject names that collide (case-insensitively) with another non-archived package."""

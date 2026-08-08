@@ -42,7 +42,18 @@
             </button>
         </form>
     </div>
+    {% elif current_user.is_admin and item.is_archived %}
+         <form method="POST" action="{{ url_for('equipment.restore_equipment', equipment_id=item.id) }}"
+              onsubmit="return confirm('Restore this equipment?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-archive me-1"></i>Restore
+            </button>
+        </form>
+
     {% endif %}
+
+
 </div>
 
 <div class="row g-4">

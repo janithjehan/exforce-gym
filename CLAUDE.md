@@ -1005,6 +1005,67 @@ Both `installmentplanstatus` and `installmentstatus` are brand-new Postgres enum
 
 ---
 
+## Installment Options moved from Configuration to Package (Added 2026-08-07, supersedes the global-menu design above)
+
+### Design decision
+The global `AppConfiguration.installment_options` menu (Admin had to pre-populate an allowed-counts
+list in Configuration before any Package could offer installments) was removed. Each Package now
+owns its installment counts directly — no Configuration dependency, no "add some in Configuration
+first" detour when creating a package.
+
+### Model changes
+- `app/models/configuration.py` — `AppConfiguration.installment_options` column,
+  `parse_installment_options()`, and `installment_options_list` all removed.
+- `app/models/package.py` — `Package.parse_installment_options(raw)` (staticmethod, same
+  parse/validate/dedup/sort logic, just moved here) + `Package.installment_options_list` no longer
+  reads `AppConfiguration` at all — it parses `self.installment_options` directly.
+
+### Form/route changes
+- `PackageForm.installment_options` (`app/blueprints/packages/forms.py`) changed from a
+  `SelectMultipleField` (choices sourced from the global list) to a plain `StringField` — admin
+  types the comma-separated counts (e.g. `2,3,4,6`) straight into the package form.
+  `validate_installment_options` enforces "required when `allow_installments` is checked" + each
+  token must be a whole number >= 2. **Gotcha hit while building this:** the field must NOT also
+  carry an `Optional()` validator — WTForms runs field-level validators before the inline
+  `validate_<fieldname>` method, and `Optional()` raises `StopValidation` on an empty string, which
+  aborts the chain *before* the inline validator ever runs — silently skipping the
+  "required when allow_installments is on" check. `Length(max=100)` alone is safe to keep (it
+  doesn't raise `StopValidation` on empty input).
+- `packages/routes.py` `create_package`/`edit_package` — store
+  `Package.parse_installment_options(form.installment_options.data)` joined back to CSV, same as
+  before, just no longer validating against a global whitelist.
+- `configuration/forms.py` / `configuration/routes.py` — `installment_options` field and its
+  handling removed from `ConfigurationForm`/`edit_configuration()` entirely.
+
+### Templates
+- `packages/create.html` / `packages/edit.html` — checkbox grid replaced with a single text input
+  bound to the new `StringField`; the "No installment counts configured — add some in Configuration
+  first" fallback is gone (there's nothing to configure globally anymore).
+- `configuration/edit.html` — "Installment Options" section removed; the page is bank-transfer
+  details only again.
+- No changes needed in `packages/view.html`, `packages/list.html`, or `payments/buy.html` — all
+  three already consumed `package.installment_options_list`, whose signature didn't change.
+
+### DB migration (Flask-Migrate)
+`migrations/versions/0d9ffea9c0ed_package_owned_installment_options.py` — autogenerate correctly
+detected and emitted the single column drop (`app_configuration.installment_options`) with no
+manual editing needed; `Package.installment_options` (added in the original design) was already
+the right shape and is untouched.
+
+### Incidental repo fix (unrelated to this feature, discovered while migrating)
+`flask db migrate` initially failed with `Can't locate revision identified by '2ababa717982'` —
+the dev DB was stamped at that revision but
+`migrations/versions/2ababa717982_workout_category.py` (the Workout Categories migration, same
+pattern as Equipment Categories) was missing from disk; only its compiled `__pycache__/*.pyc` had
+survived and was even git-added. Recovered by restoring the file verbatim from an earlier commit
+(`3146cea`, "[IMP] Configurations") where it still existed on this branch before being deleted.
+**If this ever recurs:** `flask db heads`/`flask db current` disagreeing, or a "can't locate
+revision" error, means a migration `.py` file went missing after being applied — check
+`git log --all -- migrations/versions/<rev>_*.py` on the current branch before doing anything else
+(stamping/deleting `alembic_version` by hand risks losing track of real applied state).
+
+---
+
 ## Attendance Scan — Manual ID Entry, Extended to All Roles (Added 2026-08-02, supersedes the original QR design)
 
 ### What changed and why
@@ -1148,6 +1209,46 @@ Same manual SQL as before — the only difference is it now lives in a versioned
 migration file instead of a one-off script, and future `flask db upgrade` runs will include it.
 Postgres still has no `DROP VALUE` for enums either way (see the ExpenseCategory dead-label
 gotcha in the Payroll → Expenses section above) — that limitation is unrelated to Alembic.
+
+### Two more autogenerate gaps, confirmed 2026-08-08
+A brief, since-reverted experiment adding a new enum column to the already-existing `workouts`
+table (not the enum-*value*-addition case above, which is about growing an enum that already
+exists in Postgres — this is a **new** enum column on an **existing** table) surfaced two more
+places autogenerate produces an incomplete script:
+
+1. **No `CREATE TYPE`.** Autogenerate emits only
+   `batch_op.add_column(sa.Column('col', sa.Enum(...), nullable=False))` — it never creates the
+   Postgres enum type first. `flask db upgrade` fails with
+   `psycopg2.errors.UndefinedObject: type "..." does not exist`. (When a whole new *table* is
+   created in the same migration, `op.create_table(...)` handles enum-type creation
+   automatically — this gap is specific to adding an enum column via `add_column` on a table that
+   already exists.)
+2. **No backfill for existing rows.** If the table already has rows, a `NOT NULL` column with no
+   `server_default` fails on those rows even once the type exists.
+
+Fix pattern for next time:
+```python
+from sqlalchemy.dialects import postgresql
+my_enum = postgresql.ENUM('A', 'B', name='my_type_name')
+
+def upgrade():
+    my_enum.create(op.get_bind(), checkfirst=True)
+    with op.batch_alter_table('sometable', schema=None) as batch_op:
+        batch_op.add_column(sa.Column(
+            'col',
+            postgresql.ENUM('A', 'B', name='my_type_name', create_type=False),
+            nullable=False, server_default='A',
+        ))
+        batch_op.alter_column('col', server_default=None)  # only if the model wants a Python-side default, not a DB one
+
+def downgrade():
+    with op.batch_alter_table('sometable', schema=None) as batch_op:
+        batch_op.drop_column('col')
+    my_enum.drop(op.get_bind(), checkfirst=True)
+```
+Also worth noting: give the enum type a specific name, not a generic word like `status` —
+Postgres enum type names share one namespace per schema, not per-table, so a future unrelated
+enum with the same generic name would collide with it.
 
 ### Convention going forward
 Keep writing the CLAUDE.md prose changelog entries as before (the *why*/*context* behind a

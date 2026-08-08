@@ -15,7 +15,7 @@ class Package(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
-    # Installments: opt-in subset of AppConfiguration.installment_options, e.g. "2,4"
+    # Installments: counts this package offers when allow_installments is on, e.g. "2,4"
     allow_installments = db.Column(db.Boolean, nullable=False, default=False)
     installment_options = db.Column(db.String(100), nullable=True)
 
@@ -45,14 +45,31 @@ class Package(db.Model):
                 return label
         return f'{self.duration_months} Months'
 
+    @staticmethod
+    def parse_installment_options(raw):
+        """Parse a comma-separated string of installment counts into a sorted,
+        de-duplicated list of ints >= 2. Silently drops invalid tokens."""
+        if not raw:
+            return []
+        counts = set()
+        for token in raw.split(','):
+            token = token.strip()
+            if not token:
+                continue
+            try:
+                n = int(token)
+            except ValueError:
+                continue
+            if n >= 2:
+                counts.add(n)
+        return sorted(counts)
+
     @property
     def installment_options_list(self):
-        """This package's offered installment counts (subset of the global
-        Configuration list), sorted ascending. Empty if installments are off."""
+        """This package's offered installment counts, sorted ascending. Empty if installments are off."""
         if not self.allow_installments:
             return []
-        from app.models.configuration import AppConfiguration
-        return AppConfiguration.parse_installment_options(self.installment_options)
+        return self.parse_installment_options(self.installment_options)
 
     @property
     def status_label(self):

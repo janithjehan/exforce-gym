@@ -6,6 +6,7 @@ from wtforms.validators import DataRequired, Optional, Length, NumberRange
 
 
 def _value_field(label, unit):
+    """Build an optional 2dp decimal field for one body-measurement value (0-999)."""
     return DecimalField(
         f'{label} ({unit})',
         places=2,
@@ -39,6 +40,7 @@ class MeasurementForm(FlaskForm):
     submit = SubmitField('Save Measurement')
 
     def has_any_value(self):
+        """True if at least one value field was filled in."""
         return any(
             getattr(self, attr).data is not None
             for attr in (

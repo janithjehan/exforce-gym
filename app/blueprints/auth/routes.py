@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
@@ -11,6 +12,7 @@ from app.utils.decorators import log_activity
 from app.utils.mailer import send_email
 from app.utils.tokens import generate_reset_token, verify_reset_token
 
+logger = logging.getLogger(__name__)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -96,6 +98,7 @@ def register():
         )
         db.session.add(member)
         db.session.commit()
+        logger.info("New member registered: username=%s email=%s (user_id=%s)", user.username, user.email, user.id)
         flash('Account created successfully! Add your mobile number and NIC from "Edit My Profile" after signing in.', 'success')
         return redirect(url_for('auth.login'))
 

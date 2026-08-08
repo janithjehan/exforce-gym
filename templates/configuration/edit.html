@@ -35,21 +35,6 @@
                         {% for e in form.bank_transfer_details.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                     </div>
 
-                    <hr class="my-4">
-
-                    <h6 class="fw-semibold"><i class="fa-solid fa-layer-group text-orange me-2"></i>Installment Options</h6>
-                    <p class="text-muted small">
-                        Global menu of installment counts a Package can opt into (e.g. a member
-                        could pay an 80,000 package over 4 installments of 20,000). Each Package
-                        then chooses which of these counts it actually offers.
-                    </p>
-                    <div class="mb-4">
-                        {{ form.installment_options.label(class='form-label fw-semibold') }}
-                        {{ form.installment_options(class='form-control' + (' is-invalid' if form.installment_options.errors else '')) }}
-                        {% for e in form.installment_options.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                        <div class="form-text">Comma-separated whole numbers, 2 or more (e.g. 2,3,4,6,12).</div>
-                    </div>
-
                     {{ form.submit(class='btn btn-primary') }}
                 </form>
 

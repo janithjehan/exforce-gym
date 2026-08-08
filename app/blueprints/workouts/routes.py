@@ -23,7 +23,7 @@ def list_workouts():
     muscle_filter = request.args.get('muscle', '')
     difficulty_filter = request.args.get('difficulty', '')
 
-    query = Workout.query.filter_by(is_archived=False)
+    query = Workout.query
 
     if status_filter == 'inactive':
         query = query.filter_by(is_active=False)
@@ -172,4 +172,16 @@ def archive_workout(workout_id):
     workout.updated_at = datetime.utcnow()
     db.session.commit()
     flash(f'Workout "{workout.name}" has been archived.', 'secondary')
+    return redirect(url_for('workouts.list_workouts'))
+
+@workouts_bp.route('/<int:workout_id>/restore', methods=['POST'])
+@admin_or_trainer_required
+def restore_workout(workout_id):
+    workout = Workout.query.get_or_404(workout_id)
+    workout.is_archived = False
+    workout.is_active = True
+    workout.updated_by_id = current_user.id
+    workout.updated_at = datetime.utcnow()
+    db.session.commit()
+    flash(f'Workout "{workout.name}" has been restored.', 'secondary')
     return redirect(url_for('workouts.list_workouts'))

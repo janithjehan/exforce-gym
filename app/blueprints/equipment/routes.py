@@ -1,19 +1,91 @@
-from datetime import datetime
+import io
+from datetime import datetime, date
 
 from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user
 from sqlalchemy import func
+
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.blueprints.equipment import equipment_bp
 from app.blueprints.equipment.forms import EquipmentForm
 from app.extensions import db
 from app.models.equipment import Equipment, EquipmentStatus
 from app.models.equipment_category import EquipmentCategory
-from app.utils.decorators import admin_required, admin_manager_or_trainer_required
+from app.utils.decorators import admin_required, admin_manager_or_trainer_required, admin_or_manager_required
 from app.utils.search import parse_search_terms, multi_term_filter
 from app.utils.uploads import read_image_bytes
 
 EQUIPMENT_PER_PAGE = 15
+
+def _filtered_equipments_query(search, status_filter, availability_filter):
+    """Builds the shared Equipment query (search/status/availability filters) used by both
+    list_equipment and export_equipments. These are two independent axes:
+    status_filter (all / archived) is the soft-delete state; availability_filter
+    (available / out_of_service) is the operational status — either can combine with the other."""
+    if status_filter == 'archived':
+        query = Equipment.query.filter_by(is_archived=True)
+    else:
+        query = Equipment.query.filter_by(is_archived=False)
+
+    if availability_filter == 'available':
+        query = query.filter_by(status=EquipmentStatus.AVAILABLE)
+    elif availability_filter == 'out_of_service':
+        query = query.filter_by(status=EquipmentStatus.OUT_OF_SERVICE)
+
+    terms = parse_search_terms(search)
+    if terms:
+        query = query.filter(multi_term_filter(terms, [Equipment.name]))
+
+    return query
+
+@equipment_bp.route('/export')
+@admin_or_manager_required
+def export_equipments():
+    """Excel (.xlsx) export of the equipment list, honouring the current list filters."""
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', 'all')
+    availability_filter = request.args.get('availability', '')
+
+    equipments = (
+        _filtered_equipments_query(search, status_filter, availability_filter)).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Equipments'
+
+    headers = [
+        'ID', 'Name', 'Quantity', 'Notes'
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for u in equipments:
+        ws.append([
+            u.id,
+            u.name,
+            u.quantity,
+            u.notes,
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    filename = f'equipments_report_{date.today().strftime("%Y%m%d")}.xlsx'
+    return Response(
+        out.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
 
 
 @equipment_bp.route('/<int:equipment_id>/image')
@@ -36,19 +108,11 @@ def list_equipment():
     """Equipment list with status tabs, name search, category filter, stats, and pagination."""
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', 'all')
+    availability_filter = request.args.get('availability', '')
     search = request.args.get('q', '').strip()
     category_filter = request.args.get('category', 0, type=int)
 
-    query = Equipment.query.filter_by(is_archived=False)
-
-    if status_filter == 'available':
-        query = query.filter_by(status=EquipmentStatus.AVAILABLE)
-    elif status_filter == 'out_of_service':
-        query = query.filter_by(status=EquipmentStatus.OUT_OF_SERVICE)
-
-    terms = parse_search_terms(search)
-    if terms:
-        query = query.filter(multi_term_filter(terms, [Equipment.name]))
+    query = _filtered_equipments_query(search, status_filter, availability_filter)
     if category_filter:
         query = query.filter_by(category_id=category_filter)
 
@@ -65,6 +129,7 @@ def list_equipment():
         'equipment/list.html',
         equipment=equipment,
         status_filter=status_filter,
+        availability_filter=availability_filter,
         search=search,
         category_filter=category_filter,
         categories=EquipmentCategory.query.order_by(EquipmentCategory.name.asc()).all(),
@@ -185,4 +250,17 @@ def archive_equipment(equipment_id):
     item.updated_at = datetime.utcnow()
     db.session.commit()
     flash(f'Equipment "{item.name}" has been archived.', 'secondary')
+    return redirect(url_for('equipment.list_equipment'))
+
+
+@equipment_bp.route('/<int:equipment_id>/restore', methods=['POST'])
+@admin_required
+def restore_equipment(equipment_id):
+    """Soft-deletes an equipment item."""
+    item = Equipment.query.get_or_404(equipment_id)
+    item.is_archived = False
+    item.updated_by_id = current_user.id
+    item.updated_at = datetime.utcnow()
+    db.session.commit()
+    flash(f'Equipment "{item.name}" has been restored.', 'secondary')
     return redirect(url_for('equipment.list_equipment'))

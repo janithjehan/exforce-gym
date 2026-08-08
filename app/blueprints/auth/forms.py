@@ -1,15 +1,17 @@
-import re
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import (DataRequired, Email, EqualTo, Length, Regexp, ValidationError)
+from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError)
 from app.models.user import User
 
 
 def _validate_password_strength(form, field):
     password = field.data
-    if not re.search(r'[A-Za-z]', password):
+    has_letter = any(char.isalpha() for char in password)
+    has_digit = any(char.isdigit() for char in password)
+
+    if not has_letter:
         raise ValidationError('Password must contain at least one letter.')
-    if not re.search(r'\d', password):
+    if not has_digit:
         raise ValidationError('Password must contain at least one number.')
 
 
@@ -33,10 +35,6 @@ class RegisterForm(FlaskForm):
         validators=[
             DataRequired(),
             Length(min=3, max=80),
-            Regexp(
-                r'^[\w.-]+$',
-                message='Username may only contain letters, numbers, dots, hyphens, and underscores.',
-            ),
         ],
         render_kw={'placeholder': 'Choose a username'},
     )
@@ -72,7 +70,14 @@ class RegisterForm(FlaskForm):
     submit = SubmitField('Create Account')
 
     def validate_username(self, field):
-        if User.query.filter_by(username=field.data).first():
+        username = field.data
+        for char in username:
+            if not (char.isalnum() or char in '.-_'):
+                raise ValidationError(
+                    'Username may only contain letters, numbers, dots, hyphens, and underscores.'
+                )
+
+        if User.query.filter_by(username=username).first():
             raise ValidationError('That username is already taken.')
 
     def validate_email(self, field):

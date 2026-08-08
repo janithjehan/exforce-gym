@@ -6,7 +6,7 @@ from wtforms import (
     DateField, BooleanField, SubmitField
 )
 from wtforms.validators import (
-    DataRequired, Email, Length, Optional, Regexp, ValidationError
+    DataRequired, Email, Length, Optional, ValidationError
 )
 from app.models.user import User
 from app.models.member import Gender
@@ -26,7 +26,6 @@ class MemberCreateForm(FlaskForm):
         'Username',
         validators=[
             DataRequired(), Length(min=3, max=80),
-            Regexp(r'^[\w.-]+$', message='Letters, numbers, dots, hyphens, underscores only.'),
         ],
     )
     email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
@@ -69,7 +68,12 @@ class MemberCreateForm(FlaskForm):
     submit = SubmitField('Create Member')
 
     def validate_username(self, field):
-        if User.query.filter_by(username=field.data).first():
+        username = field.data
+        for char in username:
+            if not (char.isalnum() or char in '.-_'):
+                raise ValidationError('Letters, numbers, dots, hyphens, underscores only.')
+
+        if User.query.filter_by(username=username).first():
             raise ValidationError('Username already taken.')
 
     def validate_email(self, field):
