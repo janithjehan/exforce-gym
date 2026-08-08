@@ -37,15 +37,69 @@
             </button>
             {% endif %}
         </form>
-        <form method="POST" action="{{ url_for('workouts.archive_workout', workout_id=workout.id) }}"
-              onsubmit="return confirm('Archive this workout? It will no longer be usable in schedules.')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-archive me-1"></i>Archive
-            </button>
-        </form>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#archiveWorkoutModal">
+            <i class="fa-solid fa-archive me-1"></i>Archive
+        </button>
     </div>
     {% endif %}
+
+    {% if workout.is_archived %}
+        <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#restoreWorkoutModal">
+            <i class="fa-solid fa-archive me-1"></i>Restore
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="archiveWorkoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Archive Workout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Archive <strong>{{ workout.name }}</strong>? It will no longer be usable in schedules.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('workouts.archive_workout', workout_id=workout.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="fa-solid fa-archive me-1"></i>Archive
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="restoreWorkoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Restore Workout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Restore <strong>{{ workout.name }}</strong>?
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('workouts.restore_workout', workout_id=workout.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="fa-solid fa-archive me-1"></i>Restore
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">

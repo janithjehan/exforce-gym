@@ -34,6 +34,7 @@ def _can_manage(schedule):
 
 
 def _populate_choices(form):
+    """Populate member/trainer select choices; a trainer only sees their own profile."""
     members = (
         Member.query.join(User, Member.user_id == User.id)
         .filter(Member.is_archived == False, User.is_active == True)
@@ -56,6 +57,7 @@ def _populate_choices(form):
 
 
 def _active_workouts():
+    """Return active, non-archived workouts for the item picker."""
     return (
         Workout.query.filter_by(is_active=True, is_archived=False)
         .order_by(Workout.name.asc())
@@ -66,11 +68,17 @@ def _active_workouts():
 @schedules_bp.route('/')
 @admin_manager_or_trainer_required
 def list_schedules():
+    """List schedules with status tabs, member/title search, and pagination."""
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', 'planned')
     search = request.args.get('q', '').strip()
 
-    query = Schedule.query
+    base_query = Schedule.query
+    if current_user.role == UserRole.TRAINER:
+        profile = current_user.trainer_profile
+        base_query = base_query.filter(Schedule.trainer_id == (profile.id if profile else -1))
+
+    query = base_query
 
     if status_filter in ('planned', 'completed', 'cancelled'):
         query = query.filter(Schedule.status == ScheduleStatus(status_filter))
@@ -90,9 +98,9 @@ def list_schedules():
     )
 
     stats = {
-        'planned': Schedule.query.filter_by(status=ScheduleStatus.PLANNED).count(),
-        'completed': Schedule.query.filter_by(status=ScheduleStatus.COMPLETED).count(),
-        'cancelled': Schedule.query.filter_by(status=ScheduleStatus.CANCELLED).count(),
+        'planned': base_query.filter(Schedule.status == ScheduleStatus.PLANNED).count(),
+        'completed': base_query.filter(Schedule.status == ScheduleStatus.COMPLETED).count(),
+        'cancelled': base_query.filter(Schedule.status == ScheduleStatus.CANCELLED).count(),
     }
 
     return render_template(
@@ -108,6 +116,7 @@ def list_schedules():
 @schedules_bp.route('/create', methods=['GET', 'POST'])
 @admin_or_trainer_required
 def create_schedule():
+    """Create a schedule with one or more workout items."""
     if current_user.role == UserRole.TRAINER and not current_user.trainer_profile:
         flash('Your trainer profile has not been set up yet. Contact admin.', 'warning')
         return redirect(url_for('dashboard.home'))
@@ -163,6 +172,7 @@ def create_schedule():
 
 @schedules_bp.route('/<int:schedule_id>')
 def view_schedule(schedule_id):
+    """View a schedule; members are restricted to their own."""
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login', next=request.url))
 
@@ -186,6 +196,7 @@ def view_schedule(schedule_id):
 @schedules_bp.route('/<int:schedule_id>/edit', methods=['GET', 'POST'])
 @admin_or_trainer_required
 def edit_schedule(schedule_id):
+    """Edit a planned schedule; replaces its items, bumps version, and logs the change."""
     schedule = Schedule.query.get_or_404(schedule_id)
 
     if not _can_manage(schedule):
@@ -326,6 +337,7 @@ def complete_schedule(schedule_id):
 @schedules_bp.route('/<int:schedule_id>/cancel', methods=['POST'])
 @admin_or_trainer_required
 def cancel_schedule(schedule_id):
+    """Cancel a planned schedule."""
     schedule = Schedule.query.get_or_404(schedule_id)
 
     if not _can_manage(schedule):
@@ -344,6 +356,7 @@ def cancel_schedule(schedule_id):
 
 @schedules_bp.route('/<int:schedule_id>/pdf')
 def download_pdf(schedule_id):
+    """Generate and stream the schedule as a downloadable PDF."""
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login', next=request.url))
 
@@ -366,6 +379,7 @@ def download_pdf(schedule_id):
 @schedules_bp.route('/my-schedules')
 @roles_required(UserRole.MEMBER)
 def my_schedules():
+    """Member-facing paginated history of the current user's own schedules."""
     profile = getattr(current_user, 'member_profile', None)
     if not profile:
         flash('Your member profile has not been set up yet. Contact admin.', 'warning')

@@ -6,11 +6,17 @@
         <h2>Equipment</h2>
         <p>Track gym equipment inventory and availability.</p>
     </div>
-    {% if current_user.is_admin %}
-    <a href="{{ url_for('equipment.create_equipment') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus me-2"></i>New Equipment
-    </a>
-    {% endif %}
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('equipment.export_equipments', search=search, status=status_filter, availability=availability_filter) }}"
+               class="btn btn-outline-primary">
+                <i class="fa-solid fa-file-excel me-2"></i>Export Excel
+            </a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('equipment.create_equipment') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus me-2"></i>New Equipment
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Stats -->
@@ -40,20 +46,25 @@
         <ul class="nav nav-tabs card-header-tabs mb-0">
             <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
-                   href="{{ url_for('equipment.list_equipment', status='all') }}">All</a>
+                   href="{{ url_for('equipment.list_equipment', status='all', availability=availability_filter) }}">Active</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {% if status_filter == 'available' %}active{% endif %}"
-                   href="{{ url_for('equipment.list_equipment', status='available') }}">Available</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if status_filter == 'out_of_service' %}active{% endif %}"
-                   href="{{ url_for('equipment.list_equipment', status='out_of_service') }}">Out of Service</a>
+                <a class="nav-link {% if status_filter == 'archived' %}active{% endif %}"
+                   href="{{ url_for('equipment.list_equipment', status='archived', availability=availability_filter) }}">Archived</a>
             </li>
         </ul>
 
         <form method="GET" class="d-flex gap-2 flex-wrap ms-auto" style="font-size:13.5px;">
-            <input type="hidden" name="status" value="{{ status_filter }}">
+<!--            <select name="status" class="form-select form-select-sm" style="width:170px;">-->
+<!--                <option value="all"      {% if status_filter == 'all' %}selected{% endif %}>Active</option>-->
+<!--                <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>-->
+<!--            </select>-->
+
+<!--            <select name="availability" class="form-select form-select-sm" style="width:170px;">-->
+<!--                <option value=""                {% if availability_filter == '' %}selected{% endif %}>All Statuses</option>-->
+<!--                <option value="available"       {% if availability_filter == 'available' %}selected{% endif %}>Available</option>-->
+<!--                <option value="out_of_service"  {% if availability_filter == 'out_of_service' %}selected{% endif %}>Out of Service</option>-->
+<!--            </select>-->
             <input type="search" name="q" value="{{ search }}" class="form-control form-control-sm"
                    placeholder="Search equipment... (comma-separated)" style="width:260px;">
             <select name="category" class="form-select form-select-sm" style="width:170px;">
@@ -125,21 +136,21 @@
             <nav>
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {% if not equipment.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('equipment.list_equipment', page=equipment.prev_num, status=status_filter, q=search, category=category_filter) }}">
+                        <a class="page-link" href="{{ url_for('equipment.list_equipment', page=equipment.prev_num, status=status_filter, availability=availability_filter, q=search, category=category_filter) }}">
                             <i class="fa-solid fa-chevron-left"></i>
                         </a>
                     </li>
                     {% for p in equipment.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                         {% if p %}
                         <li class="page-item {% if p == equipment.page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('equipment.list_equipment', page=p, status=status_filter, q=search, category=category_filter) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('equipment.list_equipment', page=p, status=status_filter, availability=availability_filter, q=search, category=category_filter) }}">{{ p }}</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
                     {% endfor %}
                     <li class="page-item {% if not equipment.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('equipment.list_equipment', page=equipment.next_num, status=status_filter, q=search, category=category_filter) }}">
+                        <a class="page-link" href="{{ url_for('equipment.list_equipment', page=equipment.next_num, status=status_filter, availability=availability_filter, q=search, category=category_filter) }}">
                             <i class="fa-solid fa-chevron-right"></i>
                         </a>
                     </li>
@@ -152,8 +163,8 @@
         <div class="text-center py-5 text-muted">
             <i class="fa-solid fa-wrench fa-2x mb-3 d-block"></i>
             No equipment found.
-            {% if status_filter != 'all' or search or category_filter %}
-            <a href="{{ url_for('equipment.list_equipment', status='all') }}">Clear filters</a>{% if current_user.is_admin %} or{% endif %}
+            {% if status_filter != 'all' or availability_filter or search or category_filter %}
+            <a href="{{ url_for('equipment.list_equipment') }}">Clear filters</a>{% if current_user.is_admin %} or{% endif %}
             {% endif %}
             {% if current_user.is_admin %}
             <a href="{{ url_for('equipment.create_equipment') }}">add one</a>.

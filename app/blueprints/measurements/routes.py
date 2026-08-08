@@ -25,6 +25,7 @@ def _can_access(measurement):
 
 
 def _own_member_profile_or_403():
+    """Return the current user's Member profile, or abort 403 if they don't have one."""
     profile = current_user.member_profile
     if profile is None:
         abort(403)
@@ -34,6 +35,7 @@ def _own_member_profile_or_403():
 @measurements_bp.route('/')
 @admin_required
 def list_measurements():
+    """Admin-only list of all measurement records with member search, stats, and pagination."""
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
 
@@ -76,6 +78,7 @@ def list_measurements():
 @measurements_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create_measurement():
+    """Record a new measurement; Admin picks any member, a Member is locked to their own profile."""
     if current_user.role not in (UserRole.ADMIN, UserRole.MEMBER):
         abort(403)
 
@@ -135,6 +138,7 @@ def create_measurement():
 @measurements_bp.route('/<int:measurement_id>')
 @login_required
 def view_measurement(measurement_id):
+    """View a measurement's value grid, BMI, and edit history; Admin or the owning member only."""
     record = Measurement.query.get_or_404(measurement_id)
     if not _can_access(record):
         abort(403)
@@ -201,6 +205,7 @@ def edit_measurement(measurement_id):
 @measurements_bp.route('/my-measurements')
 @login_required
 def my_measurements():
+    """Member-facing paginated history, latest snapshot, and weight-trend chart data."""
     if current_user.role == UserRole.ADMIN:
         return redirect(url_for('measurements.list_measurements'))
     if current_user.role != UserRole.MEMBER:

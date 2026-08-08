@@ -67,7 +67,7 @@ def create_package():
             is_active=True,
             allow_installments=form.allow_installments.data,
             installment_options=(
-                ','.join(str(n) for n in sorted(form.installment_options.data))
+                ','.join(str(n) for n in Package.parse_installment_options(form.installment_options.data))
                 if form.allow_installments.data else None
             ),
             created_by_id=current_user.id,
@@ -106,7 +106,7 @@ def edit_package(package_id):
         form.price.data = package.price
         form.description.data = package.description
         form.allow_installments.data = package.allow_installments
-        form.installment_options.data = package.installment_options_list
+        form.installment_options.data = package.installment_options or ''
 
     if form.validate_on_submit():
         package.name = form.name.data.strip()
@@ -115,7 +115,7 @@ def edit_package(package_id):
         package.description = form.description.data.strip() or None
         package.allow_installments = form.allow_installments.data
         package.installment_options = (
-            ','.join(str(n) for n in sorted(form.installment_options.data))
+            ','.join(str(n) for n in Package.parse_installment_options(form.installment_options.data))
             if form.allow_installments.data else None
         )
         package.updated_by_id = current_user.id

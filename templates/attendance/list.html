@@ -6,9 +6,15 @@
         <h2>Attendance</h2>
         <p>Track check-ins and check-outs for every role - Admin, Manager, Trainer, and Member.</p>
     </div>
-    <a href="{{ url_for('attendance.create_attendance') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus me-2"></i>Record Attendance
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('attendance.export_attendance', search=search, date_from=date_from, date_to=date_to, role=role_filter) }}"
+           class="btn btn-outline-primary">
+            <i class="fa-solid fa-file-excel me-2"></i>Export Excel
+        </a>
+        <a href="{{ url_for('attendance.create_attendance') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus me-2"></i>Record Attendance
+        </a>
+    </div>
 </div>
 
 <!-- Stats -->
@@ -52,12 +58,14 @@
                 <option value="{{ r.value }}" {% if role_filter == r.value %}selected{% endif %}>{{ r.label }}</option>
                 {% endfor %}
             </select>
-            <input type="date" name="date" value="{{ date_filter }}"
-                   class="form-control form-control-sm" style="width:160px;">
+            <input type="date" name="date_from" value="{{ date_from }}"
+                   class="form-control form-control-sm" style="width:160px;" title="From date">
+            <input type="date" name="date_to" value="{{ date_to }}"
+                   class="form-control form-control-sm" style="width:160px;" title="To date">
             <button type="submit" class="btn btn-sm btn-outline-secondary">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
-            {% if search or date_filter or role_filter %}
+            {% if search or date_from or date_to or role_filter %}
             <a href="{{ url_for('attendance.list_attendance') }}"
                class="btn btn-sm btn-outline-secondary">Clear</a>
             {% endif %}
@@ -119,21 +127,21 @@
             <nav>
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {% if not records.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('attendance.list_attendance', page=records.prev_num, search=search, date=date_filter, role=role_filter) }}">
+                        <a class="page-link" href="{{ url_for('attendance.list_attendance', page=records.prev_num, search=search, date_from=date_from, date_to=date_to, role=role_filter) }}">
                             <i class="fa-solid fa-chevron-left"></i>
                         </a>
                     </li>
                     {% for p in records.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                         {% if p %}
                         <li class="page-item {% if p == records.page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('attendance.list_attendance', page=p, search=search, date=date_filter, role=role_filter) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('attendance.list_attendance', page=p, search=search, date_from=date_from, date_to=date_to, role=role_filter) }}">{{ p }}</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
                     {% endfor %}
                     <li class="page-item {% if not records.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('attendance.list_attendance', page=records.next_num, search=search, date=date_filter, role=role_filter) }}">
+                        <a class="page-link" href="{{ url_for('attendance.list_attendance', page=records.next_num, search=search, date_from=date_from, date_to=date_to, role=role_filter) }}">
                             <i class="fa-solid fa-chevron-right"></i>
                         </a>
                     </li>

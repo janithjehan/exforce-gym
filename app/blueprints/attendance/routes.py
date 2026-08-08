@@ -1,11 +1,15 @@
+import io
 from datetime import datetime, date, timedelta
-from flask import render_template, redirect, url_for, flash, request, abort
+from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import current_user, login_required
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.blueprints.attendance import attendance_bp
 from app.blueprints.attendance.forms import AttendanceCreateForm
 from app.extensions import db
 from app.models.attendance import Attendance
+from app.models.trainer_request import TrainerRequest, TrainerRequestStatus
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_manager_or_trainer_required
 from app.utils.search import parse_search_terms, multi_term_filter
@@ -15,15 +19,9 @@ ATTENDANCE_PER_PAGE = 20
 SCAN_DEBOUNCE_SECONDS = 8  # ignore a repeat scan/entry of the same id within this window
 
 
-@attendance_bp.route('/')
-@admin_manager_or_trainer_required
-def list_attendance():
-    page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '').strip()
-    date_filter = request.args.get('date', '')
-    role_filter = request.args.get('role', '')
-
-    query = Attendance.query.join(User, Attendance.user_id == User.id)
+def _filtered_attendance_query(base_query, search, role_filter, date_from, date_to):
+    """Builds the shared Attendance query (search/role/date filters) used by both list_attendance and export_attendance."""
+    query = base_query
 
     terms = parse_search_terms(search)
     if terms:
@@ -37,12 +35,60 @@ def list_attendance():
         except ValueError:
             pass
 
-    if date_filter:
+    if date_from:
         try:
-            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
-            query = query.filter(db.func.date(Attendance.check_in) == filter_date)
+            start = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query = query.filter(db.func.date(Attendance.check_in) >= start)
         except ValueError:
             pass
+
+    if date_to:
+        try:
+            end = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query = query.filter(db.func.date(Attendance.check_in) <= end)
+        except ValueError:
+            pass
+
+    return query
+
+
+def _trainer_assigned_user_ids(trainer):
+    """User ids of members currently assigned to this trainer (accepted requests).
+    Mirrors trainer_requests.routes.my_members()'s query."""
+    if not trainer:
+        return []
+    return [
+        req.member.user_id
+        for req in trainer.trainer_requests.filter(
+            TrainerRequest.status == TrainerRequestStatus.ACCEPTED
+        ).all()
+    ]
+
+
+def _attendance_base_query():
+    """Attendance joined to User, scoped to a Trainer's assigned members only
+    (Admin/Manager see everyone). Shared by list_attendance and export_attendance
+    so the two can never drift out of sync on who's visible to whom."""
+    base_query = Attendance.query.join(User, Attendance.user_id == User.id)
+
+    if current_user.role == UserRole.TRAINER:
+        assigned_ids = _trainer_assigned_user_ids(current_user.trainer_profile)
+        base_query = base_query.filter(Attendance.user_id.in_(assigned_ids or [-1]))
+
+    return base_query
+
+
+@attendance_bp.route('/')
+@admin_manager_or_trainer_required
+def list_attendance():
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '').strip()
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    role_filter = request.args.get('role', '')
+
+    base_query = _attendance_base_query()
+    query = _filtered_attendance_query(base_query, search, role_filter, date_from, date_to)
 
     records = query.order_by(Attendance.check_in.desc()).paginate(
         page=page, per_page=ATTENDANCE_PER_PAGE, error_out=False
@@ -51,27 +97,84 @@ def list_attendance():
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     stats = {
-        'today': Attendance.query.filter(
+        'today': base_query.filter(
             db.func.date(Attendance.check_in) == today
         ).count(),
-        'this_week': Attendance.query.filter(
+        'this_week': base_query.filter(
             db.func.date(Attendance.check_in) >= week_start
         ).count(),
-        'checked_in': Attendance.query.filter(
+        'checked_in': base_query.filter(
             Attendance.check_out == None  # noqa: E711
         ).count(),
-        'total': Attendance.query.count(),
+        'total': base_query.count(),
     }
 
     return render_template(
         'attendance/list.html',
         records=records,
         search=search,
-        date_filter=date_filter,
+        date_from=date_from,
+        date_to=date_to,
         role_filter=role_filter,
         user_roles=UserRole,
         stats=stats,
         title='Attendance',
+    )
+
+
+@attendance_bp.route('/export')
+@admin_manager_or_trainer_required
+def export_attendance():
+    """Excel (.xlsx) export of the attendance list, honouring the current list filters
+    (search/role/date range) and the same Trainer scoping as list_attendance."""
+    search = request.args.get('search', '').strip()
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    role_filter = request.args.get('role', '')
+
+    base_query = _attendance_base_query()
+    records = (
+        _filtered_attendance_query(base_query, search, role_filter, date_from, date_to)
+        .order_by(Attendance.check_in.desc())
+        .all()
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Attendance'
+
+    headers = [
+        'ID', 'Name', 'Role', 'Check-In', 'Check-Out', 'Duration', 'Notes', 'Recorded By',
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for record in records:
+        ws.append([
+            record.id,
+            record.user.full_name,
+            record.user.role.label,
+            to_local(record.check_in).strftime('%Y-%m-%d %H:%M'),
+            to_local(record.check_out).strftime('%Y-%m-%d %H:%M') if record.check_out else '',
+            record.duration_label,
+            record.notes or '',
+            record.created_by.full_name if record.created_by else '',
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    filename = f'attendance_report_{date.today().strftime("%Y%m%d")}.xlsx'
+    return Response(
+        out.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
     )
 
 
@@ -80,12 +183,24 @@ def list_attendance():
 def create_attendance():
     form = AttendanceCreateForm()
 
-    users = (
-        User.query
-        .filter(User.is_active == True, User.is_archived == False)  # noqa: E712
-        .order_by(User.role.asc(), User.first_name.asc())
-        .all()
-    )
+    if current_user.role == UserRole.TRAINER:
+        assigned_ids = _trainer_assigned_user_ids(current_user.trainer_profile)
+        users = (
+            User.query
+            .filter(
+                User.id.in_(assigned_ids or [-1]),
+                User.is_active == True, User.is_archived == False,  # noqa: E712
+            )
+            .order_by(User.first_name.asc())
+            .all()
+        )
+    else:
+        users = (
+            User.query
+            .filter(User.is_active == True, User.is_archived == False)  # noqa: E712
+            .order_by(User.role.asc(), User.first_name.asc())
+            .all()
+        )
     form.user_id.choices = [(u.id, f'{u.full_name} ({u.role.label})') for u in users]
 
     preselect_user_id = request.args.get('user_id', type=int)
@@ -122,11 +237,16 @@ def create_attendance():
 def view_attendance(attendance_id):
     record = Attendance.query.get_or_404(attendance_id)
 
-    # Anyone can view their own record; staff (Admin/Manager/Trainer) already
-    # have full list access via the decorator on list_attendance, so only a
-    # Member needs to be restricted to their own attendance here.
+    # Anyone can view their own record. A Member is restricted to their own;
+    # a Trainer is restricted to their own + their assigned members' (mirrors
+    # the same scoping as list_attendance, so this can't be bypassed via a
+    # direct URL). Admin/Manager keep full access via the route decorator.
     if current_user.role == UserRole.MEMBER and record.user_id != current_user.id:
         abort(403)
+    if current_user.role == UserRole.TRAINER:
+        allowed_ids = _trainer_assigned_user_ids(current_user.trainer_profile) + [current_user.id]
+        if record.user_id not in allowed_ids:
+            abort(403)
 
     return render_template(
         'attendance/view.html',
@@ -139,6 +259,11 @@ def view_attendance(attendance_id):
 @admin_manager_or_trainer_required
 def checkout(attendance_id):
     record = Attendance.query.get_or_404(attendance_id)
+
+    if current_user.role == UserRole.TRAINER:
+        allowed_ids = _trainer_assigned_user_ids(current_user.trainer_profile) + [current_user.id]
+        if record.user_id not in allowed_ids:
+            abort(403)
 
     if record.is_checked_out:
         flash('This record already has a check-out time.', 'warning')
