@@ -3,11 +3,12 @@ from flask import render_template, redirect, url_for, flash
 from flask_login import current_user
 
 from app.blueprints.configuration import configuration_bp
-from app.blueprints.configuration.forms import ConfigurationForm, EquipmentCategoryForm, WorkoutCategoryForm
+from app.blueprints.configuration.forms import ConfigurationForm, EquipmentCategoryForm, WorkoutCategoryForm, TrainerCategoryForm
 from app.extensions import db
 from app.models.configuration import AppConfiguration
 from app.models.equipment_category import EquipmentCategory
 from app.models.workout_category import WorkoutCategory
+from app.models.trainer_category import TrainerCategory
 from app.utils.decorators import admin_required
 
 
@@ -210,3 +211,92 @@ def delete_workout_category(category_id):
     db.session.commit()
     flash(f'Category "{name}" deleted.', 'success')
     return redirect(url_for('configuration.list_workout_categories'))
+
+
+@configuration_bp.route('/trainer-categories')
+@admin_required
+def list_trainer_categories():
+    """Lists all trainer categories (active + inactive) with their status."""
+    categories = TrainerCategory.query.order_by(TrainerCategory.name.asc()).all()
+    return render_template(
+        'configuration/trainer_categories/list.html', categories=categories,
+        title='Trainer Categories'
+    )
+
+@configuration_bp.route('/trainer-categories/create', methods=['GET', 'POST'])
+@admin_required
+def create_trainer_category():
+    """Creates a new trainer category, starting Active."""
+    form = TrainerCategoryForm()
+    if form.validate_on_submit():
+        category = TrainerCategory(
+            name=form.name.data.strip(),
+            is_active=True,
+            created_by_id=current_user.id,
+        )
+        db.session.add(category)
+        db.session.commit()
+        flash(f'Category "{category.name}" added.', 'success')
+        return redirect(url_for('configuration.list_trainer_categories'))
+
+    return render_template(
+        'configuration/trainer_categories/create.html', form=form, title='New Trainer Category'
+    )
+
+
+@configuration_bp.route('/trainer-categories/<int:category_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def edit_trainer_category(category_id):
+    """Renames an trainer category; renaming propagates to every Trainer row using it."""
+    category = TrainerCategory.query.get_or_404(category_id)
+    form = TrainerCategoryForm(obj=category)
+
+    if form.validate_on_submit():
+        category.name = form.name.data.strip()
+        category.updated_by_id = current_user.id
+        category.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Category "{category.name}" updated.', 'success')
+        return redirect(url_for('configuration.list_trainer_categories'))
+
+    return render_template(
+        'configuration/trainer_categories/edit.html', form=form, category=category,
+        title='Edit Trainer Category'
+    )
+
+@configuration_bp.route('/trainer-categories/<int:category_id>/toggle-status', methods=['POST'])
+@admin_required
+def toggle_trainer_category_status(category_id):
+    """Flips a category's Active/Inactive status; deactivated categories drop out of new-item pickers
+    but stay valid on trainer already tagged with them."""
+    category = TrainerCategory.query.get_or_404(category_id)
+    category.is_active = not category.is_active
+    category.updated_by_id = current_user.id
+    category.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    status = 'activated' if category.is_active else 'deactivated'
+    flash(f'Category "{category.name}" has been {status}.', 'success' if category.is_active else 'warning')
+    return redirect(url_for('configuration.list_trainer_categories'))
+
+@configuration_bp.route('/trainer-categories/<int:category_id>/delete', methods=['POST'])
+@admin_required
+def delete_trainer_category(category_id):
+    """Permanently removes a category. Blocked while any Trainer row still uses it —
+    category_id is a required FK, so unlinking it from trainer first (recategorize or
+    archive those items) is a prerequisite, not something this route can do silently."""
+    category = TrainerCategory.query.get_or_404(category_id)
+    in_use = category.trainer_items.count()
+    if in_use:
+        flash(
+            f'Cannot delete "{category.name}" — {in_use} trainer item(s) still use it. '
+            'Recategorize or archive them first.',
+            'danger',
+        )
+        return redirect(url_for('configuration.list_trainer_categories'))
+
+    name = category.name
+    db.session.delete(category)
+    db.session.commit()
+    flash(f'Category "{name}" deleted.', 'success')
+    return redirect(url_for('configuration.list_trainer_categories'))

@@ -9,7 +9,8 @@ class Trainer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
 
-    specialization = db.Column(db.String(200), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('trainer_categories.id'), nullable=True)
+    category = db.relationship('TrainerCategory', backref=db.backref('specialization_items', lazy='dynamic'))
     bio = db.Column(db.Text, nullable=True)
     experience_years = db.Column(db.Integer, nullable=True)
     certifications = db.Column(db.Text, nullable=True)
@@ -48,7 +49,7 @@ class Trainer(db.Model):
 
     @property
     def is_profile_complete(self):
-        return bool(self.specialization and self.specialization.strip())
+        return self.category_id is not None
 
     @property
     def age(self):

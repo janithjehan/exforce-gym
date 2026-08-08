@@ -97,10 +97,10 @@
                         <span>{{ trainer.experience_years }} year{{ 's' if trainer.experience_years != 1 else '' }}</span>
                     </li>
                     {% endif %}
-                    {% if trainer.specialization %}
+                    {% if trainer.category %}
                     <li class="d-flex justify-content-between py-2">
                         <span class="text-muted"><i class="fa-solid fa-dumbbell fa-fw me-2"></i>Specialization</span>
-                        <span class="text-end" style="max-width:60%;">{{ trainer.specialization }}</span>
+                        <span class="text-end" style="max-width:60%;">{{ trainer.category.name }}</span>
                     </li>
                     {% endif %}
                 </ul>

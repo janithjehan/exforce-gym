@@ -5,17 +5,15 @@
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ url_for('dashboard.home') }}">Dashboard</a></li>
         <li class="breadcrumb-item"><a href="{{ url_for('configuration.edit_configuration') }}">Configuration</a></li>
-        <li class="breadcrumb-item"><a href="{{ url_for('configuration.list_workout_categories') }}">Workout Categories</a></li>
-        <li class="breadcrumb-item active">Edit</li>
+        <li class="breadcrumb-item"><a href="{{ url_for('configuration.list_trainer_categories') }}">Trainer Categories</a></li>
+        <li class="breadcrumb-item active">New</li>
     </ol>
 </nav>
 
 <div class="page-header">
     <div class="page-header-title">
-        <h2>Edit Category</h2>
-        <p>
-            <span class="badge bg-{{ category.status_badge_class }}">{{ category.status_label }}</span>
-        </p>
+        <h2>New Trainer Category</h2>
+        <p>Categories start active as soon as they're created.</p>
     </div>
 </div>
 
@@ -34,7 +32,7 @@
 
                     <div class="d-flex gap-2">
                         {{ form.submit(class='btn btn-primary') }}
-                        <a href="{{ url_for('configuration.list_workout_categories') }}" class="btn btn-outline-secondary">Cancel</a>
+                        <a href="{{ url_for('configuration.list_trainer_categories') }}" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>
             </div>

@@ -32,10 +32,10 @@
             </div>
             <div class="card-body">
                 <div class="row g-3" style="font-size:13.5px;">
-                    {% if trainer_profile.specialization %}
+                    {% if trainer_profile.category %}
                     <div class="col-md-6">
                         <div class="text-muted small mb-1">Specialization</div>
-                        <div class="fw-semibold">{{ trainer_profile.specialization }}</div>
+                        <div class="fw-semibold">{{ trainer_profile.category.name }}</div>
                     </div>
                     {% endif %}
                     {% if trainer_profile.experience_years is not none %}

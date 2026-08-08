@@ -97,7 +97,7 @@
                             </div>
                         </td>
                         <td style="font-size:13px;">
-                            {{ t.specialization or '—' }}
+                            {{ t.category.name if t.category else '—' }}
                         </td>
                         <td style="font-size:13px;">
                             {% if t.experience_years is not none %}

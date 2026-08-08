@@ -196,13 +196,13 @@
                 {% endif %}
             </a>
         </li>
-        <li class="nav-item">
-            <a href="{{ url_for('feedback.list_feedback') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('feedback.') %}active{% endif %}">
-                <i class="fa-solid fa-comments"></i>
-                Feedback
-            </a>
-        </li>
+<!--        <li class="nav-item">-->
+<!--            <a href="{{ url_for('feedback.list_feedback') }}"-->
+<!--               class="nav-link {% if request.endpoint and request.endpoint.startswith('feedback.') %}active{% endif %}">-->
+<!--                <i class="fa-solid fa-comments"></i>-->
+<!--                Feedback-->
+<!--            </a>-->
+<!--        </li>-->
         <li class="nav-item">
             <a href="#configurationSubmenu" data-bs-toggle="collapse" role="button"
                aria-expanded="{{ 'true' if request.endpoint and request.endpoint.startswith('configuration.') else 'false' }}"
@@ -234,6 +234,13 @@
                            class="nav-link {% if request.endpoint and request.endpoint.startswith('configuration.') and 'workout_categor' in request.endpoint %}active{% endif %}">
                             <i class="fa-solid fa-tags"></i>
                             Workout Categories
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('configuration.list_trainer_categories') }}"
+                           class="nav-link {% if request.endpoint and request.endpoint.startswith('configuration.') and 'trainer_categor' in request.endpoint %}active{% endif %}">
+                            <i class="fa-solid fa-tags"></i>
+                            Trainer Categories
                         </a>
                     </li>
                 </ul>
@@ -523,13 +530,13 @@
                 Measurements
             </a>
         </li>
-        <li class="nav-item">
-            <a href="{{ url_for('feedback.my_feedback') }}"
-               class="nav-link {% if request.endpoint and request.endpoint.startswith('feedback.') %}active{% endif %}">
-                <i class="fa-solid fa-star"></i>
-                Feedback
-            </a>
-        </li>
+<!--        <li class="nav-item">-->
+<!--            <a href="{{ url_for('feedback.my_feedback') }}"-->
+<!--               class="nav-link {% if request.endpoint and request.endpoint.startswith('feedback.') %}active{% endif %}">-->
+<!--                <i class="fa-solid fa-star"></i>-->
+<!--                Feedback-->
+<!--            </a>-->
+<!--        </li>-->
         {% endif %}
     </ul>
 

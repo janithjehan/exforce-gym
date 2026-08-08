@@ -6,6 +6,7 @@ from wtforms.validators import DataRequired, Optional, Length, ValidationError
 from app.models.configuration import AppConfiguration
 from app.models.equipment_category import EquipmentCategory
 from app.models.workout_category import WorkoutCategory
+from app.models.trainer_category import TrainerCategory
 
 
 class ConfigurationForm(FlaskForm):
@@ -43,5 +44,18 @@ class WorkoutCategoryForm(FlaskForm):
         query = WorkoutCategory.query.filter(WorkoutCategory.name.ilike(field.data.strip()))
         if category_id:
             query = query.filter(WorkoutCategory.id != category_id)
+        if query.first():
+            raise ValidationError('A category with this name already exists.')
+
+class TrainerCategoryForm(FlaskForm):
+    name = StringField('Category Name', validators=[DataRequired(), Length(max=100)])
+    submit = SubmitField('Save Category')
+
+    def validate_name(self, field):
+        """Reject names that collide (case-insensitively) with another category."""
+        category_id = request.view_args.get('category_id')
+        query = TrainerCategory.query.filter(TrainerCategory.name.ilike(field.data.strip()))
+        if category_id:
+            query = query.filter(TrainerCategory.id != category_id)
         if query.first():
             raise ValidationError('A category with this name already exists.')

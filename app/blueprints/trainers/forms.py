@@ -9,9 +9,14 @@ from wtforms.validators import (
 )
 from app.models.user import User
 from app.models.member import Gender
+from app.models.trainer_category import TrainerCategory
 from app.utils.uploads import ALLOWED_IMAGE_EXTENSIONS
 from app.utils.validators import validate_nic_format, nic_taken
 
+def _coerce_category(value):
+    if value in (None, ''):
+        return 0
+    return int(value)
 
 class TrainerCreateForm(FlaskForm):
     # User account section
@@ -33,10 +38,11 @@ class TrainerCreateForm(FlaskForm):
     # No password fields — the trainer's initial password is their NIC number
 
     # Trainer profile section
-    specialization = StringField(
+    category = SelectField(
         'Specialization',
-        validators=[Optional(), Length(max=200)],
-        render_kw={'placeholder': 'e.g., Weight Training, Yoga, HIIT'},
+        choices=[],
+        coerce=_coerce_category,
+        validators=[DataRequired()],
     )
     bio = TextAreaField('Bio / About', validators=[Optional(), Length(max=1000)],
                         render_kw={'rows': 3, 'placeholder': 'Brief description of the trainer...'})
@@ -66,6 +72,13 @@ class TrainerCreateForm(FlaskForm):
     )
 
     submit = SubmitField('Create Trainer')
+
+    def __init__(self, *args, current_category=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        categories = TrainerCategory.query.filter_by(is_active=True).order_by(TrainerCategory.name).all()
+        if current_category and not current_category.is_active:
+            categories = categories + [current_category]
+        self.category.choices = [('', 'Select a category...')] + [(c.id, c.name) for c in categories]
 
     def validate_username(self, field):
         username = field.data
@@ -97,10 +110,11 @@ class TrainerEditForm(FlaskForm):
     )
 
     # Trainer profile fields
-    specialization = StringField(
+    category = SelectField(
         'Specialization',
-        validators=[Optional(), Length(max=200)],
-        render_kw={'placeholder': 'e.g., Weight Training, Yoga, HIIT'},
+        choices=[],
+        coerce=_coerce_category,
+        validators=[DataRequired()],
     )
     bio = TextAreaField('Bio / About', validators=[Optional(), Length(max=1000)],
                         render_kw={'rows': 3})
@@ -124,12 +138,21 @@ class TrainerEditForm(FlaskForm):
         choices=[('', '— Select —')] + [(g.value, g.label) for g in Gender],
         validators=[Optional()],
     )
+    photo = FileField(
+        'Profile Photo',
+        validators=[FileAllowed(ALLOWED_IMAGE_EXTENSIONS, 'Images only (jpg, png, gif, webp).')],
+    )
+    remove_photo = BooleanField('Remove current photo')
 
     submit = SubmitField('Save Changes')
 
-    def __init__(self, user_id=None, *args, **kwargs):
+    def __init__(self, user_id=None, *args, current_category=None, **kwargs):
         super().__init__(*args, **kwargs)
         self._user_id = user_id
+        categories = TrainerCategory.query.filter_by(is_active=True).order_by(TrainerCategory.name).all()
+        if current_category and not current_category.is_active:
+            categories = categories + [current_category]
+        self.category.choices = [('', 'Select a category...')] + [(c.id, c.name) for c in categories]
 
     def validate_nic_no(self, field):
         if nic_taken(field.data, exclude_user_id=self._user_id):

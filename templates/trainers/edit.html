@@ -19,7 +19,7 @@
     </div>
 </div>
 
-<form method="POST" novalidate>
+<form method="POST" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
 
     <div class="row g-4">
@@ -66,6 +66,23 @@
                             {{ form.gender(class='form-select' + (' is-invalid' if form.gender.errors else '')) }}
                             {% for e in form.gender.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
+                        <div class="col-12">
+                            <label class="form-label d-block">Profile Photo</label>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                {{ avatar(trainer.user, 'user-avatar user-avatar-lg') }}
+                                <div class="flex-grow-1">
+                                    {{ form.photo(class='form-control' + (' is-invalid' if form.photo.errors else ''), accept='image/*') }}
+                                    {% for e in form.photo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                                    <div class="form-text">JPG, PNG, GIF or WebP, up to 3 MB. Uploading replaces the current photo.</div>
+                                </div>
+                            </div>
+                            {% if trainer.user.avatar_url %}
+                            <div class="form-check">
+                                {{ form.remove_photo(class='form-check-input', id='removePhoto') }}
+                                <label class="form-check-label" for="removePhoto">Remove current photo</label>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -80,9 +97,9 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-8">
-                            {{ form.specialization.label(class='form-label') }}
-                            {{ form.specialization(class='form-control' + (' is-invalid' if form.specialization.errors else '')) }}
-                            {% for e in form.specialization.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            {{ form.category.label(class='form-label') }}
+                            {{ form.category(class='form-control' + (' is-invalid' if form.category.errors else '')) }}
+                            {% for e in form.category.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
                         <div class="col-4">
                             {{ form.experience_years.label(class='form-label') }}

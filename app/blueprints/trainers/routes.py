@@ -31,7 +31,7 @@ def list_trainers():
     terms = parse_search_terms(search)
     if terms:
         query = query.filter(multi_term_filter(terms, [
-            User.first_name, User.last_name, User.email, Trainer.specialization,
+            User.first_name, User.last_name, User.email, Trainer.category,
         ]))
 
     if status_filter == 'archived':
@@ -85,7 +85,7 @@ def create_trainer():
         nic_dob, nic_gender = parse_nic(form.nic_no.data)
         trainer = Trainer(
             user_id=user.id,
-            specialization=form.specialization.data.strip() or None,
+            category_id=form.category.data,
             bio=form.bio.data.strip() or None,
             experience_years=form.experience_years.data,
             certifications=form.certifications.data.strip() or None,
@@ -133,13 +133,14 @@ def edit_trainer(trainer_id):
         flash('Archived trainer profiles cannot be edited.', 'warning')
         return redirect(url_for('trainers.view_trainer', trainer_id=trainer_id))
 
-    form = TrainerEditForm(user_id=trainer.user_id, obj=trainer)
+    form = TrainerEditForm(user_id=trainer.user_id, obj=trainer, current_category=trainer.category)
 
     if request.method == 'GET':
         form.first_name.data = trainer.user.first_name
         form.last_name.data = trainer.user.last_name
         form.phone.data = trainer.user.phone
         form.nic_no.data = trainer.user.nic_no
+        form.category.data = trainer.category_id
         form.date_of_birth.data = trainer.date_of_birth
         form.gender.data = trainer.gender.value if trainer.gender else ''
 
@@ -151,7 +152,7 @@ def edit_trainer(trainer_id):
         trainer.user.updated_by_id = current_user.id
         trainer.user.updated_at = datetime.utcnow()
 
-        trainer.specialization = form.specialization.data.strip() or None
+        trainer.category_id = form.category.data
         trainer.bio = form.bio.data.strip() or None
         trainer.experience_years = form.experience_years.data
         trainer.certifications = form.certifications.data.strip() or None
@@ -160,6 +161,13 @@ def edit_trainer(trainer_id):
         trainer.gender = Gender(form.gender.data) if form.gender.data else None
         trainer.updated_by_id = current_user.id
         trainer.updated_at = datetime.utcnow()
+
+        if form.photo.data:
+            trainer.user.avatar_data, trainer.user.avatar_mimetype = read_image_bytes(form.photo.data)
+        elif form.remove_photo.data:
+            trainer.user.avatar_data = None
+            trainer.user.avatar_mimetype = None
+
         db.session.commit()
 
         flash(f'Trainer profile updated for {trainer.full_name}.', 'success')
@@ -229,7 +237,7 @@ def my_profile():
 def my_profile_edit():
     """Trainer self-service: mobile number + NIC only (DOB/gender are
     re-derived from the NIC automatically). Everything else (name,
-    specialization, bio, certifications, etc.) stays admin-managed.
+    category, bio, certifications, etc.) stays admin-managed.
     """
     if current_user.role != UserRole.TRAINER:
         return redirect(url_for('dashboard.home'))

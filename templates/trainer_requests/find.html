@@ -20,7 +20,7 @@
                 {{ avatar(t.user, 'user-avatar user-avatar-lg mx-auto mb-3') }}
                 <h5 class="fw-bold mb-1">{{ t.full_name }}</h5>
                 <div class="text-muted mb-2" style="font-size:13px;">
-                    {{ t.specialization or 'General Training' }}
+                    {{ t.category.name if t.category else 'General Training' }}
                 </div>
                 {% if t.experience_years %}
                 <span class="badge bg-light text-dark mb-2">

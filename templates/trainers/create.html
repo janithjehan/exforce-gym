@@ -86,9 +86,9 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-8">
-                            {{ form.specialization.label(class='form-label') }}
-                            {{ form.specialization(class='form-control' + (' is-invalid' if form.specialization.errors else '')) }}
-                            {% for e in form.specialization.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            {{ form.category.label(class='form-label') }}
+                            {{ form.category(class='form-control' + (' is-invalid' if form.category.errors else '')) }}
+                            {% for e in form.category.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                         </div>
                         <div class="col-4">
                             {{ form.experience_years.label(class='form-label') }}

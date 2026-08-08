@@ -27,7 +27,7 @@
                     <div>
                         <h5 class="fw-bold mb-1">{{ current.trainer.full_name }}</h5>
                         <div class="text-muted" style="font-size:13px;">
-                            {{ current.trainer.specialization or 'General Training' }}
+                            {{ current.trainer.category.name if current.trainer.category else 'General Training' }}
                         </div>
                         <span class="badge bg-{{ current.status_badge_class }} mt-1">{{ current.status_label }}</span>
                     </div>
@@ -52,7 +52,7 @@
                     <div>
                         <h5 class="fw-bold mb-1">{{ current.trainer.full_name }}</h5>
                         <div class="text-muted" style="font-size:13px;">
-                            {{ current.trainer.specialization or 'General Training' }}
+                            {{ current.trainer.category.name if current.trainer.category else 'General Training' }}
                         </div>
                         <span class="badge bg-{{ current.status_badge_class }} mt-1">{{ current.status_label }}</span>
                     </div>
