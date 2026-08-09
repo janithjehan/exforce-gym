@@ -98,9 +98,11 @@
                     <i class="fa-solid fa-dumbbell fa-2x text-orange"></i>
                 </div>
                 <h5 class="fw-bold mb-1">{{ pkg.name }}</h5>
+{#
                 {% if pkg.membership_tier %}
                 <span class="badge bg-{{ pkg.tier_badge_class }} mb-2">{{ pkg.membership_tier }}</span>
                 {% endif %}
+                #}
                 <div class="text-muted small mb-3">{{ pkg.duration_label }}</div>
                 <div class="fw-bold" style="font-size:22px;color:var(--bs-success)">
                     LKR {{ '{:,.0f}'.format(pkg.price) }}

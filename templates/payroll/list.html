@@ -7,6 +7,11 @@
         <p>Salary records for Admins, Managers, and Trainers.</p>
     </div>
     <div class="d-flex gap-2">
+        {% if stats.pending %}
+        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#payAllPendingModal">
+            <i class="fa-solid fa-money-check-dollar me-2"></i>Pay All Pending
+        </button>
+        {% endif %}
         <a href="{{ url_for('payroll.bulk_create_payroll') }}" class="btn btn-outline-primary">
             <i class="fa-solid fa-users me-2"></i>Bulk Create
         </a>
@@ -143,4 +148,41 @@
         {% endif %}
     </div>
 </div>
+
+{% if stats.pending %}
+<div class="modal fade" id="payAllPendingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('payroll.pay_all_pending') }}">
+                {{ pay_all_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title">Pay All Pending</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        This will mark all <strong>{{ stats.pending }}</strong> pending payroll record{{ 's' if stats.pending != 1 else '' }}
+                        as paid using the method and date below, and log a matching expense for each.
+                        Your own pending record (if any) will be skipped.
+                    </p>
+                    <div class="mb-3">
+                        {{ pay_all_form.method.label(class='form-label fw-semibold') }}
+                        {{ pay_all_form.method(class='form-select') }}
+                    </div>
+                    <div class="mb-0">
+                        {{ pay_all_form.payment_date.label(class='form-label fw-semibold') }}
+                        {{ pay_all_form.payment_date(class='form-control') }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa-solid fa-check me-1"></i>Pay All
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

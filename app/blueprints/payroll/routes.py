@@ -116,6 +116,7 @@ def list_payroll():
         staff_choices=_staff_choices(),
         statuses=PayrollStatus,
         stats=stats,
+        pay_all_form=PayrollMarkPaidForm(),
         title='Payroll',
     )
 
@@ -351,6 +352,67 @@ def mark_paid(payroll_id):
     return render_template(
         'payroll/mark_paid.html', form=form, record=record, title=f'Mark Paid - Payroll #{record.id}'
     )
+
+
+@payroll_bp.route('/pay-all-pending', methods=['POST'])
+@admin_or_manager_required
+def pay_all_pending():
+    """Bulk version of mark_paid — pays every PENDING record in one go with a
+    shared method/payment date. Same self-guard as the single-record route:
+    the current user's own pending record (if any) is skipped, not blocked
+    for everyone else, mirroring bulk_create_payroll's skip-not-fail pattern."""
+    form = PayrollMarkPaidForm()
+    if not form.validate_on_submit():
+        for field_errors in form.errors.values():
+            for err in field_errors:
+                flash(err, 'danger')
+        return redirect(url_for('payroll.list_payroll', status='pending'))
+
+    method = PayrollMethod(form.method.data)
+    payment_date = form.payment_date.data
+
+    pending = Payroll.query.filter_by(status=PayrollStatus.PENDING).all()
+    if not pending:
+        flash('No pending payroll records to pay.', 'info')
+        return redirect(url_for('payroll.list_payroll'))
+
+    paid_records = []
+    skipped = []
+    for record in pending:
+        if record.user_id == current_user.id:
+            skipped.append(f'{record.user.full_name} ({record.period_label}) — your own record')
+            continue
+
+        record.status = PayrollStatus.PAID
+        record.method = method
+        record.payment_date = payment_date
+        record.updated_by_id = current_user.id
+        record.updated_at = datetime.utcnow()
+
+        db.session.add(Expense(
+            category=ExpenseCategory.SALARY,
+            amount=record.net_amount,
+            expense_date=record.payment_date,
+            description=f'Salary - {record.user.full_name} ({record.period_label})',
+            payroll_id=record.id,
+            created_by_id=current_user.id,
+        ))
+        paid_records.append(record)
+
+    if not paid_records:
+        flash('No pending payroll records could be paid. Skipped: ' + '; '.join(skipped), 'warning')
+        return redirect(url_for('payroll.list_payroll'))
+
+    db.session.commit()
+
+    for record in paid_records:
+        _notify_staff_of_payroll_paid(record)
+
+    flash(f'Marked {len(paid_records)} payroll record(s) as paid and logged as expenses.', 'success')
+    if skipped:
+        flash('Skipped: ' + '; '.join(skipped), 'warning')
+
+    return redirect(url_for('payroll.list_payroll'))
 
 
 @payroll_bp.route('/<int:payroll_id>/cancel', methods=['POST'])

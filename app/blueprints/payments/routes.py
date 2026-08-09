@@ -1,7 +1,11 @@
+import io
 import time
 from datetime import datetime, date, timedelta
-from flask import render_template, redirect, url_for, flash, request, abort, current_app, jsonify
+from flask import render_template, redirect, url_for, flash, request, abort, current_app, jsonify, Response
 from flask_login import current_user, login_required
+
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.blueprints.payments import payments_bp
 from app.blueprints.payments.forms import PaymentCreateForm, PaymentEditForm, BankTransferSubmitForm
@@ -21,15 +25,9 @@ from app.utils.search import parse_search_terms, multi_term_filter
 PAYMENTS_PER_PAGE = 20
 
 
-@payments_bp.route('/')
-@admin_or_manager_required
-def list_payments():
-    page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '').strip()
-    method_filter = request.args.get('method', '')
-    month_filter = request.args.get('month', '')  # YYYY-MM
-    status_filter = request.args.get('status', '')  # '' / 'pending'
-
+def _filtered_payments_query(search, method_filter, month_filter, status_filter):
+    """Builds the shared Payment query (search/method/month/status filters) used by
+    both list_payments and export_payments."""
     query = (
         Payment.query
         .join(Member, Payment.member_id == Member.id)
@@ -66,6 +64,76 @@ def list_payments():
             )
         except (ValueError, AttributeError):
             pass
+
+    return query
+
+
+@payments_bp.route('/export')
+@admin_or_manager_required
+def export_payments():
+    """Excel (.xlsx) export of the payment list, honouring the current list filters."""
+    search = request.args.get('search', '').strip()
+    method_filter = request.args.get('method', '')
+    month_filter = request.args.get('month', '')
+    status_filter = request.args.get('status', '')
+
+    payments = (
+        _filtered_payments_query(search, method_filter, month_filter, status_filter)
+        .order_by(Payment.payment_date.desc(), Payment.id.desc())
+        .all()
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Payments'
+
+    headers = [
+        'ID', 'Member Name', 'Email', 'Amount (LKR)', 'Method', 'Payment Date',
+        'Reference No.', 'Membership ID', 'Status',
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for p in payments:
+        ws.append([
+            p.id,
+            p.member.full_name,
+            p.member.user.email,
+            float(p.amount),
+            p.method.label,
+            p.payment_date.strftime('%Y-%m-%d'),
+            p.reference_no or '',
+            p.membership_id or '',
+            p.status.label,
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    filename = f'payments_report_{date.today().strftime("%Y%m%d")}.xlsx'
+    return Response(
+        out.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
+@payments_bp.route('/')
+@admin_or_manager_required
+def list_payments():
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '').strip()
+    method_filter = request.args.get('method', '')
+    month_filter = request.args.get('month', '')  # YYYY-MM
+    status_filter = request.args.get('status', '')  # '' / 'pending'
+
+    query = _filtered_payments_query(search, method_filter, month_filter, status_filter)
 
     payments = query.order_by(Payment.payment_date.desc(), Payment.id.desc()).paginate(
         page=page, per_page=PAYMENTS_PER_PAGE, error_out=False

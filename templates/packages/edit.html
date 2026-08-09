@@ -30,11 +30,13 @@
                         {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
                     </div>
 
-<!--                    <div class="mb-3">-->
-<!--                        {{ form.membership_tier.label(class='form-label') }}-->
-<!--                        {{ form.membership_tier(class='form-select' + (' is-invalid' if form.membership_tier.errors else '')) }}-->
-<!--                        {% for e in form.membership_tier.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}-->
-<!--                    </div>-->
+{#
+                    <div class="mb-3">
+                        {{ form.membership_tier.label(class='form-label') }}
+                        {{ form.membership_tier(class='form-select' + (' is-invalid' if form.membership_tier.errors else '')) }}
+                        {% for e in form.membership_tier.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    #}
 
                     <div class="row g-3 mb-3">
                         <div class="col-sm-6">
