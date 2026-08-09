@@ -11,6 +11,7 @@ from app.blueprints.trainers.forms import TrainerCreateForm, TrainerEditForm, Tr
 from app.extensions import db
 from app.models.trainer import Trainer
 from app.models.trainer_category import TrainerCategory
+from app.models.trainer_request import TrainerRequest, TrainerRequestStatus
 from app.models.member import Gender
 from app.models.user import User, UserRole
 from app.utils.decorators import admin_required, admin_or_manager_required
@@ -43,6 +44,56 @@ def _filtered_trainers_query(search, status_filter, category_filter):
         query = query.filter(Trainer.is_archived == False)
 
     return query
+
+
+@trainers_bp.route('/export')
+@admin_or_manager_required
+def export_trainers():
+    """Excel (.xlsx) export of the trainer list, honouring the current list filters."""
+    trainers = Trainer.query.filter_by(is_archived=False).all()
+    counts = dict(
+        db.session.query(TrainerRequest.trainer_id, db.func.count(TrainerRequest.id))
+        .filter(TrainerRequest.status == TrainerRequestStatus.ACCEPTED)
+        .group_by(TrainerRequest.trainer_id)
+        .all()
+    )
+
+    trainers = sorted(trainers, key=lambda t: counts.get(t.id, 0), reverse=True)[:3]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Trainers'
+
+    headers = [
+        'ID', 'Name', 'Category', 'Status', 'Active Members',
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for trainer in trainers:
+        ws.append([
+            trainer.id,
+            trainer.user.full_name,
+            trainer.category.name if trainer.category else '',
+            trainer.status_label,
+            counts.get(trainer.id, 0),
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    filename = f'trainers_report_{date.today().strftime("%Y%m%d")}.xlsx'
+    return Response(
+        out.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
 
 @trainers_bp.route('/')
 @admin_or_manager_required
