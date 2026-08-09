@@ -99,6 +99,9 @@
                             <a href="{{ url_for('packages.view_package', package_id=pkg.id) }}" class="fw-semibold text-decoration-none">
                                 {{ pkg.name }}
                             </a>
+<!--                            {% if pkg.membership_tier %}-->
+<!--                            <span class="badge bg-{{ pkg.tier_badge_class }} ms-1">{{ pkg.membership_tier }}</span>-->
+<!--                            {% endif %}-->
                             {% if pkg.description %}
                             <div class="text-muted small text-truncate" style="max-width:260px;">{{ pkg.description }}</div>
                             {% endif %}

@@ -27,6 +27,10 @@ class PaymentCreateForm(FlaskForm):
     )
     submit = SubmitField('Record Payment')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.payment_date.render_kw = {'min': date.today().isoformat()}
+
 
 class BankTransferSubmitForm(FlaskForm):
     reference_no = StringField(
@@ -52,3 +56,7 @@ class PaymentEditForm(FlaskForm):
     notes = TextAreaField('Notes', validators=[Optional(), Length(max=500)],
                           render_kw={'rows': 2})
     submit = SubmitField('Save Changes')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.payment_date.render_kw = {'min': date.today().isoformat()}

@@ -15,9 +15,14 @@ class Package(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
+    discount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+
     # Installments: counts this package offers when allow_installments is on, e.g. "2,4"
     allow_installments = db.Column(db.Boolean, nullable=False, default=False)
     installment_options = db.Column(db.String(100), nullable=True)
+
+    # Marketing tier label, e.g. "Gold Partner" — free text, not enum-backed. None = no tier.
+    membership_tier = db.Column(db.String(50), nullable=True)
 
     # Audit
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -36,6 +41,19 @@ class Package(db.Model):
         (6, '6 Months'),
         (12, '12 Months (1 Year)'),
     ]
+
+    TIER_CHOICES = [
+        ('Gold Partner', 'Gold Partner'),
+        ('Silver Partner', 'Silver Partner'),
+        ('Bronze Partner', 'Bronze Partner'),
+    ]
+
+    @property
+    def effective_price(self):
+        if not self.discount:
+            return self.price
+        return (self.price * (100 - self.discount) / 100).quantize(self.price)
+
 
     @property
     def duration_label(self):

@@ -218,13 +218,6 @@
                 <a href="{{ url_for('payroll.create_payroll') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-sack-dollar me-2"></i>Record Payroll
                 </a>
-                <form method="POST" action="{{ url_for('dashboard.run_expiry_job') }}"
-                      onsubmit="return confirm('Run the membership expiry + reminder job now?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-outline-secondary w-100">
-                        <i class="fa-solid fa-clock-rotate-left me-2"></i>Run Expiry Job Now
-                    </button>
-                </form>
             </div>
         </div>
     </div>

@@ -98,6 +98,9 @@
                     <i class="fa-solid fa-dumbbell fa-2x text-orange"></i>
                 </div>
                 <h5 class="fw-bold mb-1">{{ pkg.name }}</h5>
+                {% if pkg.membership_tier %}
+                <span class="badge bg-{{ pkg.tier_badge_class }} mb-2">{{ pkg.membership_tier }}</span>
+                {% endif %}
                 <div class="text-muted small mb-3">{{ pkg.duration_label }}</div>
                 <div class="fw-bold" style="font-size:22px;color:var(--bs-success)">
                     LKR {{ '{:,.0f}'.format(pkg.price) }}
@@ -179,12 +182,14 @@
                         Submit a reference number — activated once staff verify it.
                     </p>
                     <hr>
+                    {#
                     <a href="#" id="checkout-btn" class="btn btn-outline-secondary w-100 disabled">
                         <i class="fa-solid fa-globe me-2"></i>Pay Online with PayHere
                     </a>
                     <p class="text-muted small text-center mt-2 mb-0" id="checkout-hint">
                         <i class="fa-solid fa-lock me-1"></i>Secured by PayHere
                     </p>
+                    #}
                 </div>
             </div>
         </div>
@@ -291,10 +296,12 @@ function updateSummary() {
     document.getElementById('summary-start').textContent    = fmtDate(start);
     document.getElementById('summary-end').textContent      = fmtDate(endRaw);
 
-    const checkoutBtn = document.getElementById('checkout-btn');
     const btBtn = document.getElementById('bank-transfer-btn');
-    const checkoutHint = document.getElementById('checkout-hint');
     const btHint = document.getElementById('bank-transfer-hint');
+    // PayHere checkout button is commented out (see above) — checkoutBtn/checkoutHint
+    // logic disabled along with it.
+    // const checkoutBtn = document.getElementById('checkout-btn');
+    // const checkoutHint = document.getElementById('checkout-hint');
 
     let btUrl = `/payments/bank-transfer?package_id=${selected.id}&start_date=${startVal}`;
 
@@ -305,17 +312,17 @@ function updateSummary() {
         btUrl += `&installments=${selectedInstallments}`;
         btHint.textContent = `First installment now — submit a reference number, activated once staff verify it.`;
 
-        checkoutBtn.classList.add('disabled');
-        checkoutBtn.removeAttribute('href');
-        checkoutHint.textContent = 'PayHere does not support installment plans — use Bank Transfer instead.';
+        // checkoutBtn.classList.add('disabled');
+        // checkoutBtn.removeAttribute('href');
+        // checkoutHint.textContent = 'PayHere does not support installment plans — use Bank Transfer instead.';
     } else {
         document.getElementById('summary-amount').textContent = fmtAmount(selected.price);
         btHint.textContent = 'Submit a reference number — activated once staff verify it.';
 
-        checkoutBtn.href = `/payments/checkout?package_id=${selected.id}&start_date=${startVal}`;
-        checkoutBtn.classList.remove('disabled');
-        checkoutHint.textContent = '';
-        checkoutHint.innerHTML = '<i class="fa-solid fa-lock me-1"></i>Secured by PayHere';
+        // checkoutBtn.href = `/payments/checkout?package_id=${selected.id}&start_date=${startVal}`;
+        // checkoutBtn.classList.remove('disabled');
+        // checkoutHint.textContent = '';
+        // checkoutHint.innerHTML = '<i class="fa-solid fa-lock me-1"></i>Secured by PayHere';
     }
 
     btBtn.href = btUrl;

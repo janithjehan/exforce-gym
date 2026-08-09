@@ -68,6 +68,7 @@ def create_package():
             duration_months=form.duration_months.data,
             price=form.price.data,
             description=form.description.data.strip() or None,
+            # membership_tier=form.membership_tier.data or None,
             is_active=True,
             allow_installments=form.allow_installments.data,
             installment_options=(
@@ -109,6 +110,7 @@ def edit_package(package_id):
         form.duration_months.data = package.duration_months
         form.price.data = package.price
         form.description.data = package.description
+        # form.membership_tier.data = package.membership_tier or ''
         form.allow_installments.data = package.allow_installments
         form.installment_options.data = package.installment_options or ''
 
@@ -117,6 +119,7 @@ def edit_package(package_id):
         package.duration_months = form.duration_months.data
         package.price = form.price.data
         package.description = form.description.data.strip() or None
+        # package.membership_tier = form.membership_tier.data or None
         package.allow_installments = form.allow_installments.data
         package.installment_options = (
             ','.join(str(n) for n in Package.parse_installment_options(form.installment_options.data))

@@ -1,12 +1,17 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SubmitField, BooleanField
-from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
+from wtforms import StringField, TextAreaField, SubmitField, BooleanField, SelectField
+from wtforms.validators import DataRequired, Length, NumberRange, ValidationError, Optional
 from wtforms.fields import DecimalField, IntegerField
 from app.models.package import Package
 
 
 class PackageForm(FlaskForm):
     name = StringField('Package Name', validators=[DataRequired(), Length(max=100)])
+    # membership_tier = SelectField(
+    #     'Membership Tier',
+    #     choices=[('', '— None —')] + Package.TIER_CHOICES,
+    #     validators=[Optional()],
+    # )
     duration_months = IntegerField(
         'Duration (Months)',
         validators=[DataRequired(), NumberRange(min=1, message='Duration must be at least 1 month.')],
